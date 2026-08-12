@@ -2,39 +2,157 @@
 <html lang="pt-br">
 <head>
     <meta charset="UTF-8">
-    <title>Almoxarifado</title>
+    <title>Almoxarifado Central</title>
     <link rel="stylesheet" href="/css/style.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        .card-panel { background: white; border-radius: 12px; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05); overflow: hidden; border: 1px solid #e2e8f0; margin-bottom: 30px; }
+        .card-header-custom { background: #1e293b; color: white; padding: 18px 24px; font-weight: bold; font-size: 1.1rem; display: flex; align-items: center; justify-content: space-between; }
+        
+        .table-responsive { width: 100%; overflow-x: auto; }
+        .table-custom { width: 100%; border-collapse: collapse; }
+        .table-custom th, .table-custom td { padding: 12px 14px; border-bottom: 1px solid #e2e8f0; text-align: left; vertical-align: middle; word-wrap: break-word; }
+        .table-custom th { background-color: #f8fafc; color: #475569; font-weight: 700; text-transform: uppercase; font-size: 0.75rem; white-space: normal; }
+        .table-custom td { color: #1e293b; font-size: 0.9rem; }
+        
+        .link-insumo { color: #2563eb; text-decoration: none; font-weight: 600; display: inline-flex; align-items: center; gap: 8px; }
+        .link-insumo:hover { text-decoration: underline; }
+
+        .filter-panel { background: #f8fafc; border-radius: 8px; margin-bottom: 20px; border: 1px solid #cbd5e1; }
+        .accordion-header { cursor: pointer; padding: 15px 20px; display: flex; justify-content: space-between; align-items: center; font-weight: bold; color: #0f172a; transition: background 0.2s; border-radius: 8px; }
+        .accordion-header:hover { background: #f1f5f9; }
+        .filter-content { display: none; padding: 0 20px 20px 20px; border-top: 1px solid #e2e8f0; margin-top: 5px; padding-top: 15px; }
+        
+        .search-main { width: 100%; padding: 12px 16px; border: 1px solid #cbd5e1; border-radius: 8px; font-size: 1rem; margin-bottom: 15px; }
+        
+        .dropdown-check-list { display: inline-block; width: 100%; position: relative; }
+        .dropdown-check-list .anchor { width: 100%; padding: 12px 16px; background: white; border: 1px solid #cbd5e1; border-radius: 6px; cursor: pointer; display: flex; justify-content: space-between; align-items: center; color: #334155; font-weight: 500; }
+        .dropdown-check-list .items-container { display: none; position: absolute; width: 100%; background: white; border: 1px solid #cbd5e1; z-index: 100; margin-top: -1px; }
+        .dropdown-check-list.visible .items-container { display: block; }
+        .items-container .search-proc-input { width: 100%; padding: 12px; border: none; border-bottom: 1px solid #e2e8f0; outline: none; background: #f8fafc; }
+        .items-container ul { list-style: none; margin: 0; padding: 0; max-height: 250px; overflow-y: auto; }
+        .items-container ul li { padding: 10px 15px; border-bottom: 1px solid #f1f5f9; display: flex; align-items: center; gap: 10px; }
+    </style>
 </head>
 <body>
     <%- include('../partials/sidebar') %>
     
     <main class="main-content">
-        <div class="page-header">
-            <h1>Almoxarifado - Controle por Processo</h1>
-            <p style="color:#64748b;">Selecione um processo para gerenciar as entradas de insumos.</p>
+        <div class="page-header" style="margin-bottom: 20px;">
+            <div>
+                <h1>Almoxarifado Central</h1>
+                <p style="color:#64748b; font-size: 1.05rem; margin-top: 5px;">Controle unificado de insumos entre a Sede e o Complexo.</p>
+            </div>
+            <div style="display: flex; gap: 12px;">
+                <% if (!user || (user.role !== 'Monitor' && user.role !== 'Coordenador')) { %>
+                    <a href="/estoque/entrada/nova" class="btn btn-primary" style="background: #10b981; padding: 10px 20px;">
+                        <i class="fas fa-plus-circle"></i> Registrar Nova Entrada
+                    </a>
+                <% } %>
+                <a href="/processos" class="btn" style="background:#e2e8f0; color:#334155;"><i class="fas fa-folder-open"></i> Ver Processos</a>
+            </div>
         </div>
 
-        <div class="grid-cards">
-            <% processos.forEach(proc => { %>
-                <div class="card" style="border-top-color: #10b981;">
-                    <div style="display:flex; justify-content:space-between; margin-bottom:10px;">
-                        <h3><%= proc.nome %></h3>
-                        <span style="font-weight:bold; color:#64748b;">#<%= proc.numero %></span>
+        <input type="text" id="globalSearch" class="search-main" placeholder="🔍 Pesquisa geral por nome do insumo ou referência (Ref)...">
+
+        <div class="filter-panel">
+            <div class="accordion-header" onclick="toggleFiltersPanel()">
+                <span><i class="fas fa-filter"></i> Filtros Avançados (Por Processo)</span>
+                <i class="fas fa-chevron-down" id="accordionIcon"></i>
+            </div>
+            <div id="filterOptions" class="filter-content">
+                <div style="margin-bottom: 20px; background: #e0f2fe; padding: 12px; border-radius: 6px; border: 1px solid #bae6fd; display: inline-flex; align-items: center; gap: 10px;">
+                    <input type="checkbox" id="checkActiveOnly" style="transform: scale(1.2);"> 
+                    <label for="checkActiveOnly" style="font-weight: bold; color: #0369a1; cursor: pointer;">Ocultar insumos sem processos ativos no momento</label>
+                </div>
+                <p style="font-weight: bold; margin-bottom: 8px; color: #0f172a;">Filtrar por Processo Específico:</p>
+                <div id="dropdownProcessos" class="dropdown-check-list">
+                    <div class="anchor" onclick="toggleDropdown()">
+                        <span id="dropdownTitle">Selecione os processos...</span>
+                        <i class="fas fa-chevron-down"></i>
                     </div>
-                    
-                    <p>Status Atual: 
-                        <span class="badge" style="background:#f1f5f9; color:#334155;"><%= proc.status %></span>
-                    </p>
-                    
-                    <div class="card-footer">
-                        <a href="/estoque/<%= proc.id %>" class="btn" style="background:#10b981; color:white; width: 100%; text-align: center;">
-                            <i class="fas fa-boxes"></i> Gerenciar Insumos
-                        </a>
+                    <div class="items-container">
+                        <input type="text" id="procSearch" class="search-proc-input" placeholder="🔍 Pesquisar dentro da lista...">
+                        <ul id="procCheckboxList">
+                            <% processosAtivos.forEach(p => { %>
+                                <li class="proc-item" data-text="<%= p.nome.toLowerCase() %> <%= p.numero %>">
+                                    <input type="checkbox" class="proc-check" value="<%= p.id %>" id="proc_<%= p.id %>"> 
+                                    <label for="proc_<%= p.id %>" style="cursor: pointer; width: 100%; margin: 0;"><strong><%= p.numero %></strong> - <%= p.nome %></label>
+                                </li>
+                            <% }) %>
+                        </ul>
                     </div>
                 </div>
-            <% }) %>
+            </div>
+        </div>
+
+        <div class="card-panel">
+            <div class="card-header-custom">
+                <span><i class="fas fa-boxes"></i> Saldo Atual no Almoxarifado Geral</span>
+            </div>
+            <div class="table-responsive">
+                <table class="table-custom" id="estoqueTable">
+                    <thead>
+                        <tr>
+                            <th style="width: 35%;">Insumo (Clique para Detalhes)</th>
+                            <th>Referência</th>
+                            <th style="text-align: center; color: #2563eb;">Estoque Sede</th>
+                            <th style="text-align: center; color: #8b5cf6;">Estoque Complexo</th>
+                            <th style="text-align: center; background: #f1f5f9;">Disponível Fisicamente</th>
+                            <th style="text-align: center; color: #0284c7; background: #e0f2fe;">Separado (Reserva)</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <% insumosGeral.forEach(item => { %>
+                            <tr class="insumo-row" data-name="<%= item.descricao.toLowerCase() %>" data-ref="<%= item.ref.toLowerCase() %>" data-ids="<%= JSON.stringify(item.ids) %>">
+                                <td><a href="/estoque/insumo/<%= item.id %>/detalhes" class="link-insumo"><i class="fas fa-search-plus" style="font-size: 0.85rem;"></i> <%= item.descricao %> (<%= item.unidade %>)</a></td>
+                                <td><span style="background: #e2e8f0; padding: 3px 8px; border-radius: 4px; font-size: 0.8rem; font-weight: 600;"><%= item.ref %></span></td>
+                                <td style="text-align: center; color: #2563eb; font-weight: 700;"><%= item.qtd_sede %></td>
+                                <td style="text-align: center; color: #8b5cf6; font-weight: 700;"><%= item.qtd_complexo %></td>
+                                <td style="text-align: center; font-size: 1.05rem; font-weight: 700; background: #f8fafc;"><%= item.total_geral %></td>
+                                <td style="text-align: center; color: #0284c7; font-weight: 700; background: #f0f9ff;"><%= item.qtd_separada %></td>
+                            </tr>
+                        <% }) %>
+                    </tbody>
+                </table>
+            </div>
         </div>
     </main>
+
+    <script>
+        const insumoMap = <%- insumoProcessoMap %>; 
+        function toggleFiltersPanel() {
+            const panel = document.getElementById('filterOptions');
+            const icon = document.getElementById('accordionIcon');
+            panel.style.display = panel.style.display === 'block' ? 'none' : 'block';
+            icon.className = panel.style.display === 'block' ? 'fas fa-chevron-up' : 'fas fa-chevron-down';
+        }
+        function toggleDropdown() { document.getElementById('dropdownProcessos').classList.toggle('visible'); }
+        document.addEventListener('click', e => {
+            const el = document.getElementById('dropdownProcessos');
+            if (el && !el.contains(e.target)) el.classList.remove('visible');
+        });
+        function applyFilters() {
+            const query = document.getElementById('globalSearch').value.toLowerCase();
+            const activeOnly = document.getElementById('checkActiveOnly').checked;
+            const selectedProcs = Array.from(document.querySelectorAll('.proc-check:checked')).map(c => parseInt(c.value));
+            document.querySelectorAll('.insumo-row').forEach(row => {
+                const ids = JSON.parse(row.dataset.ids);
+                const matchesSearch = row.dataset.name.includes(query) || row.dataset.ref.includes(query);
+                const usedInSelected = selectedProcs.length === 0 || ids.some(id => (insumoMap[id] || []).some(pid => selectedProcs.includes(pid)));
+                const hasActive = activeOnly ? ids.some(id => (insumoMap[id] || []).length > 0) : true;
+                row.style.display = (matchesSearch && usedInSelected && hasActive) ? '' : 'none';
+            });
+            const title = document.getElementById('dropdownTitle');
+            title.innerHTML = selectedProcs.length === 0 ? 'Selecione os processos...' : `<span style="color:#2563eb; font-weight:bold;">${selectedProcs.length} processos selecionados</span>`;
+        }
+        document.getElementById('globalSearch').addEventListener('input', applyFilters);
+        document.getElementById('checkActiveOnly').addEventListener('change', applyFilters);
+        document.querySelectorAll('.proc-check').forEach(c => c.addEventListener('change', applyFilters));
+        document.getElementById('procSearch').addEventListener('input', e => {
+            const val = e.target.value.toLowerCase();
+            document.querySelectorAll('.proc-item').forEach(item => { item.style.display = item.dataset.text.includes(val) ? 'flex' : 'none'; });
+        });
+    </script>
 </body>
 </html>

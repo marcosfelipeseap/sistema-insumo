@@ -1,0 +1,166 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <title>Utilização do Insumo</title>
+    <link rel="stylesheet" href="/css/style.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        .table-responsive { width: 100%; overflow-x: auto; background: white; border-radius: 8px; box-shadow: 0 1px 3px rgba(0,0,0,0.1); margin-bottom: 30px; }
+        .table-custom { width: 100%; border-collapse: collapse; }
+        .table-custom th, .table-custom td { padding: 12px 15px; border-bottom: 1px solid #e2e8f0; text-align: left; word-break: break-word; }
+        .table-custom th { background-color: #f8fafc; color: #0f172a; font-weight: bold; }
+        .info-card { background: white; padding: 20px; border-radius: 8px; box-shadow: 0 1px 3px rgba(0,0,0,0.1); margin-bottom: 25px; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 15px; }
+    </style>
+</head>
+<body>
+    <%- include('../partials/sidebar') %>
+    
+    <main class="main-content">
+        <div class="page-header">
+            <div>
+                <h1>Detalhes de Utilização do Insumo</h1>
+                <p style="color:#64748b;">Visualize os produtos do orçamento e as demandas onde este material é aplicado.</p>
+            </div>
+            <a href="/estoque" class="btn" style="background:#e2e8f0; color:#334155;"><i class="fas fa-arrow-left"></i> Voltar ao Almoxarifado</a>
+        </div>
+
+        <div class="info-card">
+            <div>
+                <h2 style="color: #0f172a; margin-bottom: 5px;"><%= insumo.descricao %></h2>
+                <p style="color: #64748b;">Unidade: <strong><%= insumo.unidade %></strong> | Referência (Ref): <strong><%= insumo.ref || 'N/A' %></strong></p>
+            </div>
+            <div style="display: flex; gap: 20px; background: #f8fafc; padding: 10px 20px; border-radius: 6px; border: 1px solid #e2e8f0;">
+                <div>
+                    <span style="font-size: 0.8rem; color: #64748b; display: block;">Saldo na Sede</span>
+                    <strong style="color: #2563eb; font-size: 1.1rem;"><%= insumo.estoque.qtd_sede %></strong>
+                </div>
+                <div>
+                    <span style="font-size: 0.8rem; color: #64748b; display: block;">Saldo no Complexo</span>
+                    <strong style="color: #8b5cf6; font-size: 1.1rem;"><%= insumo.estoque.qtd_complexo %></strong>
+                </div>
+                <div style="background: #e0f2fe; padding: 0 10px; border-radius: 4px;">
+                    <span style="font-size: 0.8rem; color: #0284c7; display: block; font-weight: bold;">TOTAL SEPARADO</span>
+                    <strong style="color: #0284c7; font-size: 1.2rem;">
+                        <!-- Soma todas as quantidades do array separacoes -->
+                        <%= (insumo.separacoes || []).reduce((acc, sep) => acc + sep.quantidade_separada, 0) %>
+                    </strong>
+                </div>
+            </div>
+        </div>
+
+        <!-- SEÇÃO 1: SEPARAÇÕES ATIVAS (RESERVAS) -->
+        <div class="section-title" style="background: #0284c7; color: white; padding: 12px 15px; border-radius: 6px 6px 0 0; font-weight: bold; margin-bottom: 0;">
+            <i class="fas fa-boxes"></i> QUANTIDADES SEPARADAS (RESERVADAS) POR PROCESSO
+        </div>
+        <div class="table-responsive">
+            <table class="table-custom">
+                <thead>
+                    <tr>
+                        <th>Processo / Demanda</th>
+                        <th>Status do Processo</th>
+                        <th style="text-align: center;">Quantidade Separada (Reservada)</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <% if (insumo.separacoes && insumo.separacoes.length > 0) { %>
+                        <% insumo.separacoes.forEach(sep => { %>
+                            <tr>
+                                <td>
+                                    <strong><%= sep.nome %></strong><br>
+                                    <span style="color: #64748b; font-size: 0.85rem;">Nº do Processo: <%= sep.numero %></span>
+                                </td>
+                                <td><span class="badge badge-pendente" style="background: #f1f5f9; color: #334155; padding: 4px 8px; border-radius: 4px;"><%= sep.status %></span></td>
+                                <td style="text-align: center; font-size: 1.1rem; color: #0284c7; background: #f0f9ff;"><strong><%= sep.quantidade_separada %> <%= insumo.unidade %></strong></td>
+                            </tr>
+                        <% }) %>
+                    <% } else { %>
+                        <tr>
+                            <td colspan="3" style="text-align: center; color: #64748b; padding: 25px;">
+                                <i class="fas fa-info-circle"></i> Não há nenhuma quantidade deste material separada (reservada) no momento.
+                            </td>
+                        </tr>
+                    <% } %>
+                </tbody>
+            </table>
+        </div>
+
+        <!-- SEÇÃO 2: PRODUTOS DO ORÇAMENTO QUE USAM ESTE INSUMO -->
+        <div class="section-title" style="background: #334155; color: white; padding: 12px 15px; border-radius: 6px 6px 0 0; font-weight: bold; margin-top: 30px; margin-bottom: 0;">
+            <i class="fas fa-list-alt"></i> PRODUTOS DO ORÇAMENTO QUE UTILIZAM ESTE INSUMO (FICHA TÉCNICA)
+        </div>
+        <div class="table-responsive">
+            <table class="table-custom">
+                <thead>
+                    <tr>
+                        <th>Produto</th>
+                        <th>Grupo</th>
+                        <th style="text-align: right;">Índice (Quantidade Base por Unidade do Produto)</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <% if (insumo.produtos_orcamento && insumo.produtos_orcamento.length > 0) { %>
+                        <% insumo.produtos_orcamento.forEach(prod => { %>
+                            <tr>
+                                <td><strong><%= prod.produto_nome %></strong></td>
+                                <td><span style="background:#e2e8f0; color:#334155; padding: 3px 8px; border-radius: 4px; font-size: 0.85rem;"><%= prod.grupo_nome %></span></td>
+                                <td style="text-align: right; font-weight: bold; color: #2563eb;"><%= Number(prod.indice).toFixed(4) %> <%= insumo.unidade %></td>
+                            </tr>
+                        <% }) %>
+                    <% } else { %>
+                        <tr><td colspan="3" style="text-align: center; color: #64748b; padding: 20px;">Nenhum produto cadastrado no orçamento utiliza este insumo.</td></tr>
+                    <% } %>
+                </tbody>
+            </table>
+        </div>
+
+        <!-- SEÇÃO 3: PROCESSOS ATIVOS QUE ESTÃO CONSUMINDO ESTE INSUMO -->
+        <div class="section-title" style="background: #1e293b; color: white; padding: 12px 15px; border-radius: 6px 6px 0 0; font-weight: bold; margin-top: 30px; margin-bottom: 0;">
+            <i class="fas fa-project-diagram"></i> PROCESSOS ATIVOS VINCULADOS A ESTE INSUMO
+        </div>
+        <div class="table-responsive">
+            <table class="table-custom">
+                <thead>
+                    <tr>
+                        <th>Processo / Demanda</th>
+                        <th>Status</th>
+                        <th>Produtos Vinculados que Consomem este Insumo</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <% if (insumo.processos_utilizados && insumo.processos_utilizados.length > 0) { %>
+                        <% insumo.processos_utilizados.forEach(proc => { %>
+                            <tr>
+                                <td>
+                                    <strong><%= proc.nome %></strong><br>
+                                    <span style="color: #64748b; font-size: 0.85rem;">Nº do Processo: <%= proc.numero %></span>
+                                </td>
+                                <td>
+                                    <span style="background: #f1f5f9; color: #334155; padding: 4px 8px; border-radius: 4px; font-size: 0.85rem;"><%= proc.status %></span>
+                                </td>
+                                <td>
+                                    <ul style="margin: 0; padding-left: 20px;">
+                                        <% proc.produtos.forEach(prod => { %>
+                                            <li style="margin-bottom: 5px;">
+                                                <strong><%= prod.produto_nome %></strong> 
+                                                (Qtd do Produto: <%= prod.quantidade_produto %>) → 
+                                                <span style="color: #047857; font-weight: bold;">Gera demanda de: <%= prod.quantidade_insumo_necessaria.toFixed(2) %> <%= insumo.unidade %></span>
+                                            </li>
+                                        <% }) %>
+                                    </ul>
+                                </td>
+                            </tr>
+                        <% }) %>
+                    <% } else { %>
+                        <tr>
+                            <td colspan="3" style="text-align: center; color: #64748b; padding: 25px;">
+                                <i class="fas fa-info-circle"></i> Este insumo faz parte do orçamento, mas no momento não está vinculado a nenhum processo ativo criado no sistema.
+                            </td>
+                        </tr>
+                    <% } %>
+                </tbody>
+            </table>
+        </div>
+    </main>
+</body>
+</html>

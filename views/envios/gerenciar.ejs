@@ -2,178 +2,137 @@
 <html lang="pt-br">
 <head>
     <meta charset="UTF-8">
-    <title>Gerenciar Envios para Produção</title>
+    <title>Envios em Lote</title>
     <link rel="stylesheet" href="/css/style.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <style>
-        .table-responsive { width: 100%; overflow-x: auto; margin-bottom: 30px; background: white; border-radius: 8px; box-shadow: 0 1px 3px rgba(0,0,0,0.1); }
+        .table-responsive { width: 100%; overflow-x: auto; background: white; border-radius: 8px; box-shadow: 0 1px 3px rgba(0,0,0,0.1); margin-bottom: 20px; }
         .table-custom { width: 100%; border-collapse: collapse; }
-        .table-custom th, .table-custom td { padding: 12px 15px; border-bottom: 1px solid #e2e8f0; text-align: left; word-break: break-word; }
-        .table-custom th { background-color: #f8fafc; color: #0f172a; font-weight: bold; }
+        .table-custom th, .table-custom td { padding: 12px 10px; border-bottom: 1px solid #e2e8f0; text-align: left; vertical-align: middle; }
+        .table-custom th { background-color: #f8fafc; color: #0f172a; font-weight: bold; font-size: 0.85rem; }
+        .box-info { display: inline-block; padding: 3px 6px; border-radius: 4px; font-size: 0.75rem; font-weight: bold; margin-bottom: 2px; }
+        .box-reserva { background: #e0f2fe; color: #0284c7; }
+        .box-sede { background: #dbeafe; color: #1d4ed8; }
+        .box-comp { background: #ede9fe; color: #6d28d9; }
         
-        /* Estilos do Formulário Expansível */
-        .form-row { background-color: #f8fafc; display: none; }
-        .form-row.active { display: table-row; }
-        .box-envio { border: 2px dashed #cbd5e1; border-radius: 8px; padding: 20px; background: white; margin: 10px 0; }
-        .box-titulo { font-weight: bold; color: #0f172a; border-bottom: 1px solid #e2e8f0; padding-bottom: 10px; margin-bottom: 15px; font-size: 1.1rem; }
-        
-        .input-group { display: flex; align-items: center; justify-content: space-between; padding: 10px; background: #f1f5f9; border-radius: 6px; margin-bottom: 10px; }
-        .input-group input { padding: 10px; border: 1px solid #94a3b8; border-radius: 4px; width: 120px; font-weight: bold; text-align: center; }
-        
-        .badge-emprestimo { background-color: #fce7f3; color: #be185d; padding: 4px 8px; border-radius: 4px; font-size: 0.75rem; font-weight: bold; }
-        .badge-emprestado { background-color: #e0e7ff; color: #4338ca; padding: 4px 8px; border-radius: 4px; font-size: 0.75rem; font-weight: bold; }
+        .check-item { transform: scale(1.3); cursor: pointer; }
+        .input-lote { padding: 8px; border: 1px solid #cbd5e1; border-radius: 4px; outline: none; background: #f8fafc; }
+        .row-selected { background: #fefce8 !important; }
+        .panel-footer { background: white; padding: 20px; border-radius: 8px; border: 1px solid #e2e8f0; display: flex; justify-content: space-between; align-items: flex-end; flex-wrap: wrap; gap: 20px; }
     </style>
 </head>
 <body>
     <%- include('../partials/sidebar') %>
-    
     <main class="main-content">
         <div class="page-header">
             <div>
-                <h1>Envios: <%= processo.nome %></h1>
-                <p style="color: #64748b; font-size: 1.1rem; margin-top: 5px;">Processo Nº: <%= processo.numero %></p>
+                <h1>Envio Múltiplo para Produção</h1>
+                <p style="color: #64748b; font-size: 1.1rem;">Processo: <strong><%= processo.nome %> (<%= processo.numero %>)</strong></p>
             </div>
             <a href="/envios" class="btn" style="background:#e2e8f0; color:#334155;"><i class="fas fa-arrow-left"></i> Voltar</a>
         </div>
 
-        <div class="section-title" style="background: #f59e0b; color: white; padding: 12px 15px; border-radius: 6px 6px 0 0; font-weight: bold;">
-            <i class="fas fa-box-open"></i> PAINEL DE ENVIO PARA A PRODUÇÃO
-        </div>
-        <div class="table-responsive">
-            <table class="table-custom">
-                <thead>
-                    <tr>
-                        <th style="width: 30%;">Insumo (Unidade)</th>
-                        <th>Falta Enviar p/ Produzir</th>
-                        <th>Seu Estoque Atual</th>
-                        <th>Disponível em Outros Processos</th>
-                        <% if (user && user.role !== 'Monitor' && user.role !== 'Coordenador') { %>
-                            <th>Ação</th>
-                        <% } %>
-                    </tr>
-                </thead>
-                <tbody>
-                    <% processo.insumos_estoque.forEach(ins => { 
-                        let totalEmprestimo = ins.opcoes_emprestimo.reduce((acc, curr) => acc + Number(curr.quantidade_disponivel), 0);
-                    %>
+        <form action="/envios/processo/<%= processo.id %>/saida" method="POST" id="formLote">
+            <div class="section-title" style="background: #f59e0b; color: white; padding: 12px 15px; border-radius: 6px 6px 0 0; font-weight: bold;">
+                <i class="fas fa-truck-loading"></i> SELECIONE OS MATERIAIS PARA ESTE ENVIO
+            </div>
+            
+            <div class="table-responsive">
+                <table class="table-custom">
+                    <thead>
                         <tr>
-                            <td><strong><%= ins.descricao %></strong> (<%= ins.unidade %>)</td>
-                            <td style="color:#ef4444; font-size:1.1rem; font-weight:bold;"><%= ins.quantidade_pendente_producao %></td>
-                            <td style="color:#2563eb; font-size:1.1rem; font-weight:bold;"><%= ins.quantidade_disponivel %></td>
-                            <td style="color:#8b5cf6; font-size:1.1rem; font-weight:bold;"><%= totalEmprestimo %></td>
-                            
-                            <% if (user && user.role !== 'Monitor' && user.role !== 'Coordenador') { %>
-                                <td>
-                                    <% if (ins.quantidade_pendente_producao > 0) { %>
-                                        <button type="button" class="btn btn-preparar" data-target="form-<%= ins.insumo_id %>" style="background:#f59e0b; color:white; padding: 8px 12px;">
-                                            <i class="fas fa-edit"></i> Preparar Envio
-                                        </button>
-                                    <% } else { %>
-                                        <span style="color: #166534; font-weight: bold;"><i class="fas fa-check-circle"></i> Tudo Enviado</span>
-                                    <% } %>
-                                </td>
-                            <% } %>
+                            <th style="width: 5%; text-align: center;"><i class="fas fa-check-square"></i></th>
+                            <th style="width: 30%;">Insumo (Unidade)</th>
+                            <th style="text-align: center;">Falta Enviar</th>
+                            <th style="width: 15%;">Saldos Disponíveis</th>
+                            <th style="width: 25%;">Origem do Material</th>
+                            <th style="width: 15%;">Quantidade a Enviar</th>
                         </tr>
-                        
-                        <!-- LINHA DO FORMULÁRIO (Escondida por Padrão) -->
-                        <tr id="form-<%= ins.insumo_id %>" class="form-row">
-                            <td colspan="5" style="padding: 0;">
-                                <div class="box-envio">
-                                    <form action="/envios/<%= processo.id %>/saida-multipla" method="POST">
-                                        <input type="hidden" name="insumo_id" value="<%= ins.insumo_id %>">
-                                        
-                                        <div class="box-titulo">Formulário de Envio: <%= ins.descricao %></div>
-                                        <p style="margin-bottom: 15px; color:#64748b;">
-                                            Quantidade necessária para concluir a produção deste item: <strong><%= ins.quantidade_pendente_producao %></strong>
-                                        </p>
+                    </thead>
+                    <tbody>
+                        <% processo.insumos_envio.forEach(ins => { %>
+                            <tr id="tr_<%= ins.insumo_id %>" style="background-color: <%= ins.quantidade_pendente === 0 ? '#f0fdf4' : 'transparent' %>;">
+                                
+                                <% if (ins.quantidade_pendente > 0 && (!user || (user.role !== 'Monitor' && user.role !== 'Coordenador'))) { %>
+                                    <td style="text-align: center;">
+                                        <input type="checkbox" name="selecionados" value="<%= ins.insumo_id %>" class="check-item" onclick="toggleRow(this, '<%= ins.insumo_id %>')">
+                                    </td>
+                                    <td><strong><%= ins.descricao %></strong> (<%= ins.unidade %>)</td>
+                                    <td style="text-align: center; color: #ef4444; font-weight: bold; font-size: 1.1rem;"><%= ins.quantidade_pendente %></td>
+                                    <td>
+                                        <div class="box-info box-reserva">Reservado: <%= ins.quantidade_reservada %></div>
+                                        <div class="box-info box-sede">Alm. Sede: <%= ins.saldo_sede %></div>
+                                        <div class="box-info box-comp">Alm. Comp: <%= ins.saldo_complexo %></div>
+                                    </td>
+                                    <td>
+                                        <select name="origem_<%= ins.insumo_id %>" class="input-lote" style="width: 100%;" disabled id="origem_<%= ins.insumo_id %>" required>
+                                            <option value="" disabled selected>Escolha...</option>
+                                            <% if (ins.quantidade_reservada > 0) { %><option value="RESERVA">Da Reserva</option><% } %>
+                                            <% if (ins.saldo_sede > 0) { %><option value="GERAL_SEDE">Estoque Sede</option><% } %>
+                                            <% if (ins.saldo_complexo > 0) { %><option value="GERAL_COMPLEXO">Estoque Complexo</option><% } %>
+                                        </select>
+                                    </td>
+                                    <td>
+                                        <input type="number" name="qtd_<%= ins.insumo_id %>" step="0.01" min="0.01" max="<%= ins.quantidade_pendente %>" value="<%= ins.quantidade_pendente %>" class="input-lote" style="width: 100%;" disabled id="qtd_<%= ins.insumo_id %>" required>
+                                    </td>
+                                <% } else { %>
+                                    <td style="text-align: center;"><i class="fas fa-lock" style="color:#cbd5e1;"></i></td>
+                                    <td><strong><%= ins.descricao %></strong> (<%= ins.unidade %>)</td>
+                                    <td style="text-align: center; color: #166534; font-weight: bold;"><i class="fas fa-check-circle"></i> Concluído</td>
+                                    <td colspan="3" style="color: #64748b; font-size: 0.9rem;">Enviado: <%= ins.quantidade_enviada %> | Total Necessário: <%= ins.qtd_arredondada %></td>
+                                <% } %>
+                            </tr>
+                        <% }) %>
+                    </tbody>
+                </table>
+            </div>
 
-                                        <!-- Estoque Próprio -->
-                                        <div class="input-group" style="border-left: 4px solid #3b82f6;">
-                                            <div>
-                                                <strong>Retirar do seu estoque atual</strong><br>
-                                                <span style="font-size:0.85rem; color:#64748b;">Saldo disponível: <%= ins.quantidade_disponivel %></span>
-                                            </div>
-                                            <input type="number" name="qtd_propria" step="0.01" min="0" max="<%= ins.quantidade_disponivel %>" placeholder="Qtd" value="0">
-                                        </div>
+            <div class="panel-footer">
+                <div style="flex: 1; min-width: 250px;">
+                    <label style="font-weight:bold; display:block; margin-bottom:5px;">Entregue por (Almoxarifado):</label>
+                    <input type="text" value="<%= user ? user.username : 'Sistema' %>" readonly class="input-lote" style="width:100%; background:#e2e8f0;">
+                </div>
+                <div style="flex: 1; min-width: 250px;">
+                    <label style="font-weight:bold; display:block; margin-bottom:5px; color:#0f172a;">Recebido por (Requisitante) - Obrigatório:</label>
+                    <input type="text" name="recebido_por" required placeholder="Nome completo" class="input-lote" style="width:100%; border: 2px solid #3b82f6;" autocomplete="off">
+                </div>
+                <div>
+                    <button type="submit" class="btn" style="background:#f59e0b; color:white; padding: 12px 25px; font-size: 1.1rem;" onclick="return validarEnvio()">
+                        <i class="fas fa-file-pdf"></i> Confirmar e Gerar Recibo
+                    </button>
+                </div>
+            </div>
+        </form>
 
-                                        <!-- Empréstimos -->
-                                        <% if (ins.opcoes_emprestimo.length > 0) { %>
-                                            <div style="margin-top: 20px; font-weight: bold; color: #475569; margin-bottom: 10px;">Pegar Emprestado de:</div>
-                                            <% ins.opcoes_emprestimo.forEach(op => { %>
-                                                <div class="input-group" style="border-left: 4px solid #8b5cf6;">
-                                                    <div>
-                                                        <strong><%= op.nome %> (Nº <%= op.numero %>)</strong><br>
-                                                        <span style="font-size:0.85rem; color:#64748b;">Saldo disponível: <%= op.quantidade_disponivel %></span>
-                                                    </div>
-                                                    <input type="number" name="emprestimo_<%= op.processo_id %>" step="0.01" min="0" max="<%= op.quantidade_disponivel %>" placeholder="Qtd" value="0">
-                                                </div>
-                                            <% }) %>
-                                        <% } else { %>
-                                            <div style="margin-top: 15px; color:#ef4444; font-size: 0.9rem;"><i class="fas fa-exclamation-circle"></i> Nenhum outro processo possui este insumo em estoque para empréstimo.</div>
-                                        <% } %>
-
-                                        <div style="margin-top: 20px; display: flex; gap: 15px; align-items: center;">
-                                            <input type="text" name="recebido_por" placeholder="Nome de quem vai receber na produção" required style="flex:1; padding:10px; border:1px solid #cbd5e1; border-radius:4px;">
-                                            <button type="submit" class="btn" style="background:#10b981; color:white; padding:10px 20px; font-size: 1.1rem;"><i class="fas fa-paper-plane"></i> Confirmar Envio</button>
-                                            <button type="button" class="btn btn-fechar" data-target="form-<%= ins.insumo_id %>" style="background:#e2e8f0; color:#334155; padding:10px 20px;">Cancelar</button>
-                                        </div>
-                                    </form>
-                                </div>
-                            </td>
-                        </tr>
-                    <% }) %>
-                </tbody>
-            </table>
-        </div>
-
-        <!-- MANTÉM A TABELA DE HISTÓRICO EMBAIXO COMO ANTES -->
         <div class="section-title" style="background: #334155; color: white; padding: 12px 15px; border-radius: 6px 6px 0 0; font-weight: bold; margin-top: 40px;">
-            <i class="fas fa-history"></i> HISTÓRICO DE MOVIMENTAÇÕES
+            <i class="fas fa-history"></i> HISTÓRICO DE LOTES ENVIADOS
         </div>
         <div class="table-responsive">
             <table class="table-custom">
-                <thead>
-                    <tr>
-                        <th>Data</th>
-                        <th>Tipo</th>
-                        <th>Insumo</th>
-                        <th>Quantidade</th>
-                        <th>Entregue Por</th>
-                        <th>Recebido Por</th>
-                        <th>Detalhes</th>
-                    </tr>
-                </thead>
+                <thead><tr><th style="width: 15%;">Data</th><th style="width: 35%;">Itens Despachados</th><th>Entregue Por</th><th>Recebido Por</th><th style="text-align: center; width: 15%;">Ação</th></tr></thead>
                 <tbody>
-                    <% if (processo.historico && processo.historico.length > 0) { %>
-                        <% processo.historico.forEach(hist => { %>
+                    <% if (processo.historico_lotes && processo.historico_lotes.length > 0) { %>
+                        <% processo.historico_lotes.forEach(lote => { %>
                             <tr>
-                                <td><%= new Date(hist.data_movimentacao).toLocaleString('pt-BR') %></td>
+                                <td style="font-weight:bold;"><%= new Date(lote.data).toLocaleString('pt-BR') %></td>
                                 <td>
-                                    <% if (hist.tipo === 'SAIDA_PRODUCAO') { %>
-                                        <span class="badge" style="background:#dcfce7; color:#166534;">Envio Normal</span>
-                                    <% } else if (hist.tipo === 'EMPRESTIMO' && hist.processo_destino_id === processo.id) { %>
-                                        <span class="badge-emprestimo">Pegou Emprestado</span>
-                                    <% } else if (hist.tipo === 'EMPRESTIMO' && hist.processo_origem_id === processo.id) { %>
-                                        <span class="badge-emprestado">Emprestou</span>
-                                    <% } else { %>
-                                        <span class="badge" style="background:#f1f5f9; color:#334155;"><%= hist.tipo %></span>
-                                    <% } %>
+                                    <ul style="margin:0; padding-left:15px; font-size:0.9rem;">
+                                        <% lote.itens.forEach(item => { %>
+                                            <li><strong><%= item.nome %></strong> - Qtd: <span style="color:#10b981; font-weight:bold;"><%= item.quantidade %></span></li>
+                                        <% }) %>
+                                    </ul>
                                 </td>
-                                <td><%= hist.insumo_nome %></td>
-                                <td><strong><%= hist.quantidade %></strong> <%= hist.unidade %></td>
-                                <td><%= hist.entregue_por %></td>
-                                <td><%= hist.recebido_por || '-' %></td>
-                                <td style="font-size: 0.85rem; color:#64748b;">
-                                    <% if (hist.tipo === 'EMPRESTIMO') { %>
-                                        De: <%= hist.origem_nome %> <br> Para: <%= hist.destino_nome %>
-                                    <% } else { %>
-                                        <%= hist.observacao %>
-                                    <% } %>
+                                <td><%= lote.entregue_por %></td>
+                                <td><%= lote.recebido_por %></td>
+                                <td style="text-align: center;">
+                                    <a href="/envios/comprovante/<%= lote.lote_id %>" class="btn" style="background: #475569; color: white; font-size: 0.8rem; padding: 5px 10px;">
+                                        <i class="fas fa-print"></i> Tirar PDF
+                                    </a>
                                 </td>
                             </tr>
                         <% }) %>
                     <% } else { %>
-                        <tr><td colspan="7" style="text-align:center; color:#64748b;">Nenhuma movimentação registrada.</td></tr>
+                        <tr><td colspan="5" style="text-align:center; color:#64748b; padding: 30px;">Nenhum envio registrado para este processo.</td></tr>
                     <% } %>
                 </tbody>
             </table>
@@ -181,21 +140,32 @@
     </main>
 
     <script>
-        // Script simples para abrir/fechar os formulários na mesma tela
-        document.querySelectorAll('.btn-preparar, .btn-fechar').forEach(btn => {
-            btn.addEventListener('click', function() {
-                const targetId = this.getAttribute('data-target');
-                const row = document.getElementById(targetId);
-                
-                // Fecha todos os outros formulários abertos
-                document.querySelectorAll('.form-row').forEach(fr => {
-                    if(fr.id !== targetId) fr.classList.remove('active');
-                });
+        function toggleRow(checkbox, insumoId) {
+            const row = document.getElementById('tr_' + insumoId);
+            const origem = document.getElementById('origem_' + insumoId);
+            const qtd = document.getElementById('qtd_' + insumoId);
+            
+            if (checkbox.checked) {
+                row.classList.add('row-selected');
+                origem.disabled = false;
+                qtd.disabled = false;
+                origem.style.border = "2px solid #3b82f6";
+            } else {
+                row.classList.remove('row-selected');
+                origem.disabled = true;
+                qtd.disabled = true;
+                origem.style.border = "1px solid #cbd5e1";
+            }
+        }
 
-                // Alterna o atual
-                row.classList.toggle('active');
-            });
-        });
+        function validarEnvio() {
+            const checkboxes = document.querySelectorAll('.check-item:checked');
+            if (checkboxes.length === 0) {
+                alert("Você precisa marcar a caixinha de pelo menos UM insumo na tabela para realizar o envio.");
+                return false;
+            }
+            return true;
+        }
     </script>
 </body>
 </html>

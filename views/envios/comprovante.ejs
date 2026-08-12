@@ -1,0 +1,108 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <title>Comprovante de Saída</title>
+    <style>
+        body { font-family: 'Arial', sans-serif; background: #e2e8f0; margin: 0; padding: 20px; display: flex; justify-content: center; }
+        .recibo { background: white; width: 100%; max-width: 800px; padding: 40px; box-shadow: 0 4px 10px rgba(0,0,0,0.1); border: 1px solid #cbd5e1; }
+        
+        .header { text-align: center; border-bottom: 2px solid #000; padding-bottom: 20px; margin-bottom: 20px; }
+        .header h1 { margin: 0; font-size: 24px; text-transform: uppercase; letter-spacing: 1px; }
+        .header p { margin: 5px 0 0 0; color: #333; }
+        
+        .info-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 15px; margin-bottom: 25px; }
+        .info-box { border: 1px solid #ccc; padding: 10px; border-radius: 4px; background: #f8fafc; }
+        .info-label { font-size: 11px; color: #666; display: block; text-transform: uppercase; margin-bottom: 3px; font-weight: bold; }
+        .info-value { font-weight: bold; font-size: 16px; color: #000; }
+
+        .items-table { width: 100%; border-collapse: collapse; margin-bottom: 40px; border: 1px solid #ccc; }
+        .items-table th, .items-table td { border: 1px solid #ccc; padding: 10px; text-align: left; }
+        .items-table th { background: #f1f5f9; font-size: 13px; text-transform: uppercase; }
+        .items-table td { font-size: 15px; }
+
+        .signatures { display: grid; grid-template-columns: 1fr 1fr; gap: 50px; margin-top: 80px; text-align: center; }
+        .sig-box p { margin: 5px 0; font-size: 14px; }
+        .sig-line { border-top: 1px solid #000; padding-top: 10px; margin-top: 50px; font-weight: bold; }
+        
+        .no-print { text-align: center; margin-bottom: 20px; }
+        .btn { padding: 10px 20px; font-weight: bold; cursor: pointer; border: none; border-radius: 4px; color: white; margin: 0 5px; }
+        
+        @media print {
+            body { background: white; padding: 0; }
+            .recibo { box-shadow: none; border: none; padding: 0; }
+            .no-print { display: none; }
+        }
+    </style>
+</head>
+<body>
+    <div style="width: 100%; max-width: 800px;">
+        <div class="no-print">
+            <button class="btn" style="background: #3b82f6;" onclick="window.print()">🖨️ Imprimir / Salvar PDF</button>
+            <button class="btn" style="background: #475569;" onclick="window.history.back()">Voltar</button>
+        </div>
+
+        <div class="recibo">
+            <div class="header">
+                <h1>Comprovante de Saída de Material</h1>
+                <p>Governo do Estado do Maranhão - SEAP / UGTR</p>
+                <p style="margin-top: 10px; font-size: 14px;"><strong>Nº Lote de Envio:</strong> <%= comprovante.lote_id %> <br> <strong>Data do Envio:</strong> <%= new Date(comprovante.data_movimentacao).toLocaleString('pt-BR') %></p>
+            </div>
+
+            <div class="info-grid">
+                <div class="info-box">
+                    <span class="info-label">Nome do Processo / Demanda</span>
+                    <span class="info-value"><%= comprovante.processo_nome %></span>
+                </div>
+                <div class="info-box">
+                    <span class="info-label">Número do Processo</span>
+                    <span class="info-value"><%= comprovante.processo_numero %></span>
+                </div>
+            </div>
+
+            <h3 style="font-size: 16px; margin-bottom: 10px; border-left: 4px solid #000; padding-left: 8px;">MATERIAIS DESPACHADOS</h3>
+            <table class="items-table">
+                <thead>
+                    <tr>
+                        <th style="width: 50%;">Insumo / Descrição</th>
+                        <th style="text-align: center;">UN</th>
+                        <th style="text-align: center;">Quantidade</th>
+                        <th style="width: 25%;">Origem (Baixa em)</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <% comprovante.itens.forEach(item => { %>
+                        <tr>
+                            <td><strong><%= item.descricao %></strong><br><span style="font-size:12px; color:#555;">Ref: <%= item.ref %></span></td>
+                            <td style="text-align: center;"><%= item.unidade %></td>
+                            <td style="text-align: center; font-size: 18px; font-weight: bold;"><%= item.quantidade %></td>
+                            <td><span style="font-size: 12px;"><%= item.origem %></span></td>
+                        </tr>
+                    <% }) %>
+                </tbody>
+            </table>
+
+            <div class="signatures">
+                <div class="sig-box">
+                    <div class="sig-line">Entregue Por (Almoxarifado)</div>
+                    <p style="font-weight: bold;"><%= comprovante.entregue_por %></p>
+                    <p style="color: #666; font-size: 12px;">Assinatura do Responsável</p>
+                </div>
+                <div class="sig-box">
+                    <div class="sig-line">Recebido Por (Requisitante / Produção)</div>
+                    <p style="font-weight: bold;"><%= comprovante.recebido_por %></p>
+                    <p style="color: #666; font-size: 12px;">Assinatura do Recebedor</p>
+                </div>
+            </div>
+            
+            <p style="text-align: center; margin-top: 60px; font-size: 11px; color: #999;">Documento gerado eletronicamente pelo Sistema de Controle de Insumos - SEAP/MA.</p>
+        </div>
+    </div>
+
+    <script>
+        window.onload = function() {
+            setTimeout(() => { window.print(); }, 500);
+        };
+    </script>
+</body>
+</html>

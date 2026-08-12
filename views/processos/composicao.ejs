@@ -1,0 +1,69 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <title>Composição de Insumo</title>
+    <link rel="stylesheet" href="/css/style.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        .table-responsive { width: 100%; overflow-x: auto; background: white; border-radius: 8px; box-shadow: 0 1px 3px rgba(0,0,0,0.1); margin-bottom: 30px; }
+        .table-custom { width: 100%; border-collapse: collapse; }
+        .table-custom th, .table-custom td { padding: 12px; border: 1px solid #e2e8f0; text-align: left; }
+        .table-custom th { background-color: #f8fafc; color: #0f172a; font-weight: bold; }
+        .section-title { background: #334155; color: white; padding: 15px; font-weight: bold; border-radius: 8px 8px 0 0; }
+    </style>
+</head>
+<body>
+    <%- include('../partials/sidebar') %>
+    <main class="main-content">
+        
+        <div class="page-header" style="margin-bottom: 30px;">
+            <div>
+                <h1>Composição de Insumo</h1>
+                <p style="color: #64748b; font-size: 1.1rem; margin-top: 5px;">Detalhamento de fórmulas para o processo: <strong><%= processo.nome %></strong></p>
+            </div>
+            <a href="/processos/<%= processo.id %>/detalhes" class="btn" style="background:#e2e8f0; color:#334155;"><i class="fas fa-arrow-left"></i> Voltar aos Detalhes</a>
+        </div>
+
+        <% if ((processo.produtos || []).length === 0) { %>
+            <div style="background: white; padding: 40px; text-align: center; border-radius: 8px; border: 1px solid #e2e8f0;">
+                <h3 style="color: #64748b;">Não há produtos vinculados a este processo.</h3>
+            </div>
+        <% } %>
+
+        <% (processo.produtos || []).forEach(prod => { %>
+            <div class="section-title">
+                <i class="fas fa-box-open" style="margin-right: 8px;"></i> 
+                Produto: <%= prod.produto_nome %> 
+                <span style="float: right; font-weight: normal;">Qtd Solicitada: <strong><%= prod.qtd_solicitada %></strong></span>
+            </div>
+            <div class="table-responsive">
+                <table class="table-custom">
+                    <thead>
+                        <tr>
+                            <th>Insumo</th>
+                            <th style="width: 10%;">UN</th>
+                            <th style="text-align: right; width: 20%;">Composição de Insumo (Unitária)</th>
+                            <th style="text-align: right; width: 20%; color: #2563eb;">Composição de Custo (Total)</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <% (prod.itens || []).forEach(item => { %>
+                            <tr>
+                                <td><%= item.insumo ? item.insumo.descricao : 'Item não encontrado' %></td>
+                                <td><%= item.insumo ? item.insumo.unidade : '-' %></td>
+                                <td style="text-align: right; color: #64748b;"><%= item.qtd_base ? item.qtd_base.toFixed(4) : '0.0000' %></td>
+                                <td style="text-align: right; font-weight: bold; color: #0f172a;"><%= item.qtd_total_solicitada ? item.qtd_total_solicitada.toFixed(4) : '0.0000' %></td>
+                            </tr>
+                        <% }) %>
+                        <% if ((prod.itens || []).length === 0) { %>
+                            <tr><td colspan="4" style="text-align: center; color: #64748b;">Nenhum insumo configurado na composição deste produto.</td></tr>
+                        <% } %>
+                    </tbody>
+                </table>
+            </div>
+        <% }) %>
+
+    </main>
+</body>
+</html>

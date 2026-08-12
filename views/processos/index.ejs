@@ -30,6 +30,7 @@
                     
                     <div class="card-footer" style="flex-wrap: wrap; gap: 10px;">
                         <a href="/processos/<%= proc.id %>/detalhes" class="btn btn-primary" style="padding: 6px 12px; font-size: 0.85rem;"><i class="fas fa-eye"></i> Detalhes</a>
+                        <a href="/estoque/processo/<%= proc.id %>/separacao" class="btn" style="background: #10b981; color: white; padding: 6px 12px; font-size: 0.85rem;"><i class="fas fa-boxes"></i> Separar Material</a>
                         
                         <% if (user && user.role !== 'Monitor' && user.role !== 'Coordenador') { %>
                             <div style="display: flex; gap: 5px;">
@@ -42,6 +43,10 @@
                     </div>
                 </div>
             <% }) %>
+            
+            <% if(processos.length === 0) { %>
+                <p style="grid-column: 1 / -1; text-align: center; color: #64748b;">Nenhum processo cadastrado ainda.</p>
+            <% } %>
         </div>
     </main>
 </body>

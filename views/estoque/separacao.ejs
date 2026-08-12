@@ -1,0 +1,82 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <title>Separação de Materiais</title>
+    <link rel="stylesheet" href="/css/style.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        .table-responsive { width: 100%; overflow-x: auto; background: white; border-radius: 8px; box-shadow: 0 1px 3px rgba(0,0,0,0.1); margin-bottom: 30px; }
+        .table-custom { width: 100%; border-collapse: collapse; }
+        .table-custom th, .table-custom td { padding: 12px 15px; border-bottom: 1px solid #e2e8f0; text-align: left; word-break: break-word; vertical-align: middle; }
+        .table-custom th { background-color: #f8fafc; color: #0f172a; font-weight: bold; }
+        .form-separar { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+        .form-separar select, .form-separar input { padding: 6px; border: 1px solid #cbd5e1; border-radius: 4px; }
+    </style>
+</head>
+<body>
+    <%- include('../partials/sidebar') %>
+    
+    <main class="main-content">
+        <div class="page-header">
+            <div>
+                <h1>Separação para o Processo: <%= processo.nome %></h1>
+                <p style="color: #64748b; font-size: 1.1rem; margin-top: 5px;">Processo Nº: <%= processo.numero %> | Separe os insumos do estoque geral para esta demanda.</p>
+            </div>
+            <a href="/processos" class="btn" style="background:#e2e8f0; color:#334155;"><i class="fas fa-arrow-left"></i> Voltar aos Processos</a>
+        </div>
+
+        <div class="section-title" style="background: #2563eb; color: white; padding: 12px 15px; border-radius: 6px 6px 0 0; font-weight: bold;">
+            <i class="fas fa-tasks"></i> ITENS NECESSÁRIOS E RESERVA
+        </div>
+        <div class="table-responsive">
+            <table class="table-custom">
+                <thead>
+                    <tr>
+                        <th style="width: 30%;">Insumo (Unidade)</th>
+                        <th style="text-align: center;">Qtd Necessária</th>
+                        <th style="text-align: center; color: #10b981;">Já Separado (Reservado)</th>
+                        <th style="text-align: center; color: #ef4444;">Falta Separar</th>
+                        <th style="text-align: center; background: #f8fafc;">Saldo Geral Disponível (Sede / Complexo)</th>
+                        <% if (user && user.role !== 'Monitor' && user.role !== 'Coordenador') { %>
+                            <th>Ação de Separar</th>
+                        <% } %>
+                    </tr>
+                </thead>
+                <tbody>
+                    <% processo.insumos_separacao.forEach(ins => { %>
+                        <tr style="background-color: <%= ins.status_separacao ? '#f0fdf4' : 'transparent' %>;">
+                            <td><strong><%= ins.descricao %></strong> (<%= ins.unidade %>)</td>
+                            <td style="text-align: center; font-size: 1.1rem; font-weight: bold;"><%= ins.qtd_arredondada %></td>
+                            <td style="text-align: center; color: #10b981; font-size: 1.1rem; font-weight: bold;"><%= ins.quantidade_reservada %></td>
+                            <td style="text-align: center; color: #ef4444; font-size: 1.1rem; font-weight: bold;"><%= ins.quantidade_pendente_separacao %></td>
+                            <td style="text-align: center; background: #f8fafc; font-size: 0.95rem;">
+                                <span style="color: #2563eb; font-weight:bold;">Sede: <%= ins.saldo_sede %></span> | 
+                                <span style="color: #8b5cf6; font-weight:bold;">Complexo: <%= ins.saldo_complexo %></span>
+                            </td>
+                            
+                            <% if (user && user.role !== 'Monitor' && user.role !== 'Coordenador') { %>
+                                <td>
+                                    <% if (ins.quantidade_pendente_separacao > 0) { %>
+                                        <form action="/estoque/processo/<%= processo.id %>/separar" method="POST" class="form-separar">
+                                            <input type="hidden" name="insumo_id" value="<%= ins.insumo_id %>">
+                                            <select name="local" required>
+                                                <option value="SEDE">Puxar da Sede</option>
+                                                <option value="COMPLEXO">Puxar do Complexo</option>
+                                            </select>
+                                            <input type="number" name="quantidade" step="0.01" min="0.01" max="<%= ins.quantidade_pendente_separacao %>" placeholder="Qtd" style="width: 80px;" required>
+                                            <button type="submit" class="btn" style="background:#10b981; color:white; padding: 6px 10px;"><i class="fas fa-check"></i></button>
+                                        </form>
+                                    <% } else { %>
+                                        <span style="color: #166534; font-weight: bold;"><i class="fas fa-check-circle"></i> Separado</span>
+                                    <% } %>
+                                </td>
+                            <% } %>
+                        </tr>
+                    <% }) %>
+                </tbody>
+            </table>
+        </div>
+    </main>
+</body>
+</html>

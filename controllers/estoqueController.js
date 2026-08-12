@@ -1,47 +1,87 @@
-const ProcessoService = require('../services/processoService');
 const EstoqueService = require('../services/estoqueService');
 
-exports.index = async (req, res) => {
-    try {
-        // Usa o listarTodos de processos, pois o estoque é organizado por processo
-        const processos = await ProcessoService.listarTodos();
-        res.render('estoque/index', { processos, user: res.locals.user });
-    } catch (error) {
-        console.error(error);
-        res.status(500).send('Erro ao carregar almoxarifado');
+const estoqueController = {
+    index: async (req, res) => {
+        try {
+            const insumosGeral = await EstoqueService.listarEstoqueGeral();
+            const { map, processos } = await EstoqueService.mapearUsoPorProcesso();
+            res.render('estoque/index', { insumosGeral, insumoProcessoMap: JSON.stringify(map), processosAtivos: processos, user: res.locals.user });
+        } catch (error) { res.status(500).send('Erro ao carregar almoxarifado geral'); }
+    },
+
+    novaEntrada: async (req, res) => {
+        try {
+            if (res.locals.user && (res.locals.user.role === 'Monitor' || res.locals.user.role === 'Coordenador')) return res.status(403).send('Sem permissão.');
+            const insumosGeral = await EstoqueService.listarEstoqueGeral();
+            const { map, processos } = await EstoqueService.mapearUsoPorProcesso(); 
+            res.render('estoque/entrada', { insumosGeral, insumoProcessoMap: JSON.stringify(map), processosAtivos: processos, user: res.locals.user });
+        } catch (error) { res.status(500).send('Erro ao carregar tela'); }
+    },
+
+    registrarEntradaLote: async (req, res) => {
+        try {
+            if (res.locals.user && (res.locals.user.role === 'Monitor' || res.locals.user.role === 'Coordenador')) return res.status(403).send('Sem permissão.');
+            const { insumos_ids, qtd_sede, qtd_complexo } = req.body;
+            const usuario = res.locals.user ? res.locals.user.username : 'Sistema';
+            if (insumos_ids && Array.isArray(insumos_ids)) {
+                for (let i = 0; i < insumos_ids.length; i++) {
+                    if (Number(qtd_sede[i]) > 0) await EstoqueService.registrarEntradaGeral(insumos_ids[i], 'SEDE', Number(qtd_sede[i]), usuario);
+                    if (Number(qtd_complexo[i]) > 0) await EstoqueService.registrarEntradaGeral(insumos_ids[i], 'COMPLEXO', Number(qtd_complexo[i]), usuario);
+                }
+            }
+            res.redirect('/estoque');
+        } catch (error) { res.status(500).send('Erro ao registrar entradas'); }
+    },
+
+    gerenciarSeparacao: async (req, res) => {
+        try {
+            const processo = await EstoqueService.listarReservasProcesso(req.params.processoId);
+            res.render('estoque/separacao', { processo, user: res.locals.user });
+        } catch (error) { res.status(500).send('Erro ao carregar painel'); }
+    },
+
+    separarInsumo: async (req, res) => {
+        try {
+            if (res.locals.user && (res.locals.user.role === 'Monitor' || res.locals.user.role === 'Coordenador')) return res.status(403).send('Sem permissão.');
+            await EstoqueService.separarParaProcesso(req.params.processoId, req.body.insumo_id, req.body.local, Number(req.body.quantidade), res.locals.user ? res.locals.user.username : 'Sistema');
+            res.redirect(`/estoque/processo/${req.params.processoId}/separacao`);
+        } catch (error) { res.status(400).send(error.message); }
+    },
+
+    detalhesInsumo: async (req, res) => {
+        try {
+            const insumo = await EstoqueService.obterDetalhesInsumo(req.params.insumoId);
+            res.render('estoque/insumo-detalhes', { insumo, user: res.locals.user });
+        } catch (error) { res.status(500).send('Erro ao carregar detalhes'); }
+    },
+
+    // NOVOS CONTROLADORES DE RESERVA
+    editarReserva: async (req, res) => {
+        try {
+            if (res.locals.user && (res.locals.user.role === 'Monitor' || res.locals.user.role === 'Coordenador')) return res.status(403).send('Sem permissão.');
+            const { reserva_id, insumo_id, nova_quantidade, local_ajuste } = req.body;
+            await EstoqueService.editarReserva(reserva_id, Number(nova_quantidade), local_ajuste, res.locals.user ? res.locals.user.username : 'Sistema');
+            res.redirect(`/estoque/insumo/${insumo_id}/detalhes`);
+        } catch (error) { res.status(400).send(`<script>alert('${error.message}'); window.history.back();</script>`); }
+    },
+
+    transferirReserva: async (req, res) => {
+        try {
+            if (res.locals.user && (res.locals.user.role === 'Monitor' || res.locals.user.role === 'Coordenador')) return res.status(403).send('Sem permissão.');
+            const { reserva_id, insumo_id, novo_processo_id } = req.body;
+            await EstoqueService.transferirReserva(reserva_id, novo_processo_id, res.locals.user ? res.locals.user.username : 'Sistema');
+            res.redirect(`/estoque/insumo/${insumo_id}/detalhes`);
+        } catch (error) { res.status(400).send(`<script>alert('${error.message}'); window.history.back();</script>`); }
+    },
+
+    deletarReserva: async (req, res) => {
+        try {
+            if (res.locals.user && (res.locals.user.role === 'Monitor' || res.locals.user.role === 'Coordenador')) return res.status(403).send('Sem permissão.');
+            const { reserva_id, insumo_id, local_retorno } = req.body;
+            await EstoqueService.deletarReserva(reserva_id, local_retorno, res.locals.user ? res.locals.user.username : 'Sistema');
+            res.redirect(`/estoque/insumo/${insumo_id}/detalhes`);
+        } catch (error) { res.status(400).send(`<script>alert('${error.message}'); window.history.back();</script>`); }
     }
 };
 
-exports.gerenciar = async (req, res) => {
-    try {
-        const processoId = req.params.processoId;
-        const processo = await EstoqueService.listarEstoqueProcesso(processoId);
-        
-        if (!processo) return res.status(404).send('Processo não encontrado');
-        
-        res.render('estoque/gerenciar', { processo, user: res.locals.user });
-    } catch (error) {
-        console.error(error);
-        res.status(500).send('Erro ao carregar estoque do processo');
-    }
-};
-
-exports.registrarEntrada = async (req, res) => {
-    try {
-        const processoId = req.params.processoId;
-        const { insumo_id, quantidade } = req.body;
-        const usuario = res.locals.user ? res.locals.user.username : 'Sistema';
-
-        // TRAVA DE PERFIL: Oculta ação no backend também
-        if (res.locals.user && (res.locals.user.role === 'Monitor' || res.locals.user.role === 'Coordenador')) {
-            return res.status(403).send('Acesso Negado: Perfil sem permissão para entrada de estoque.');
-        }
-
-        await EstoqueService.registrarEntrada(processoId, insumo_id, Number(quantidade), usuario);
-        
-        res.redirect(`/estoque/${processoId}`);
-    } catch (error) {
-        console.error(error);
-        res.status(500).send('Erro ao registrar entrada');
-    }
-};
+module.exports = estoqueController;

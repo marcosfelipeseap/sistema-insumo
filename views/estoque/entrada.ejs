@@ -1,0 +1,234 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <title>Registrar Entrada de Insumos</title>
+    <link rel="stylesheet" href="/css/style.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        .card-panel { background: white; border-radius: 12px; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05); overflow: hidden; border: 1px solid #e2e8f0; margin-bottom: 30px; }
+        .card-header-custom { background: #0f172a; color: white; padding: 18px 24px; font-weight: bold; font-size: 1.1rem; display: flex; align-items: center; gap: 10px; }
+        .card-body { padding: 24px; }
+        
+        .table-responsive { width: 100%; overflow-x: auto; max-height: 550px; overflow-y: auto; border: 1px solid #e2e8f0; border-radius: 8px; }
+        .table-custom { width: 100%; border-collapse: collapse; min-width: 800px; }
+        .table-custom th, .table-custom td { padding: 12px 16px; border-bottom: 1px solid #e2e8f0; text-align: left; vertical-align: middle; }
+        .table-custom th { background-color: #f8fafc; color: #475569; font-weight: 700; text-transform: uppercase; font-size: 0.8rem; position: sticky; top: 0; z-index: 10; }
+        .table-custom td { color: #1e293b; font-size: 0.95rem; }
+        
+        .input-qtd { width: 110px; padding: 8px 10px; border: 1px solid #cbd5e1; border-radius: 6px; font-weight: 600; text-align: center; }
+        .input-qtd:focus { outline: none; border-color: #3b82f6; }
+
+        /* Estilos do Painel de Filtros */
+        .filter-panel { background: #f8fafc; border-radius: 8px; margin-bottom: 20px; border: 1px solid #cbd5e1; }
+        .accordion-header { cursor: pointer; padding: 15px 20px; display: flex; justify-content: space-between; align-items: center; font-weight: bold; color: #0f172a; transition: background 0.2s; border-radius: 8px; }
+        .accordion-header:hover { background: #f1f5f9; }
+        .filter-content { display: none; padding: 0 20px 20px 20px; border-top: 1px solid #e2e8f0; margin-top: 5px; padding-top: 15px; }
+        
+        .search-main { width: 100%; padding: 12px 16px; border: 1px solid #cbd5e1; border-radius: 8px; font-size: 1rem; margin-bottom: 15px; }
+        .search-main:focus { outline: none; border-color: #3b82f6; box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.15); }
+
+        /* Estilos do Dropdown Multi-Select */
+        .dropdown-check-list { display: inline-block; width: 100%; position: relative; }
+        .dropdown-check-list .anchor { width: 100%; padding: 12px 16px; background: white; border: 1px solid #cbd5e1; border-radius: 6px; cursor: pointer; display: flex; justify-content: space-between; align-items: center; color: #334155; font-weight: 500; transition: border-color 0.2s; }
+        .dropdown-check-list .anchor:hover { border-color: #94a3b8; }
+        .dropdown-check-list .items-container { display: none; position: absolute; width: 100%; background: white; border: 1px solid #cbd5e1; border-top: none; border-radius: 0 0 6px 6px; box-shadow: 0 10px 15px -3px rgba(0,0,0,0.1); z-index: 100; margin-top: -1px; }
+        .dropdown-check-list.visible .items-container { display: block; }
+        .dropdown-check-list.visible .anchor { border-radius: 6px 6px 0 0; border-bottom-color: transparent; box-shadow: 0 2px 4px rgba(0,0,0,0.05); }
+        .items-container .search-proc-input { width: 100%; padding: 12px; border: none; border-bottom: 1px solid #e2e8f0; outline: none; background: #f8fafc; font-size: 0.95rem; }
+        .items-container ul { list-style: none; margin: 0; padding: 0; max-height: 250px; overflow-y: auto; }
+        .items-container ul li { padding: 10px 15px; border-bottom: 1px solid #f1f5f9; display: flex; align-items: center; gap: 10px; transition: background 0.2s; }
+        .items-container ul li:hover { background: #f8fafc; }
+        .items-container ul li:last-child { border-bottom: none; }
+    </style>
+</head>
+<body>
+    <%- include('../partials/sidebar') %>
+    
+    <main class="main-content">
+        <div class="page-header" style="margin-bottom: 20px;">
+            <div>
+                <h1>Registrar Nova Entrada</h1>
+                <p style="color:#64748b; font-size: 1.05rem; margin-top: 5px;">Pesquise os insumos e informe as quantidades recebidas na Sede ou Complexo.</p>
+            </div>
+            <a href="/estoque" class="btn" style="background:#e2e8f0; color:#334155;"><i class="fas fa-arrow-left"></i> Voltar ao Almoxarifado</a>
+        </div>
+
+        <!-- PESQUISA GERAL -->
+        <input type="text" id="globalSearch" class="search-main" placeholder="🔍 Pesquisa geral por nome do insumo ou referência (Ref)...">
+
+        <!-- PAINEL DE FILTROS AVANÇADOS (ACORDEÃO) -->
+        <div class="filter-panel">
+            <div class="accordion-header" onclick="toggleFiltersPanel()">
+                <span><i class="fas fa-filter"></i> Filtros Avançados (Por Processo)</span>
+                <i class="fas fa-chevron-down" id="accordionIcon"></i>
+            </div>
+            <div id="filterOptions" class="filter-content">
+                <div style="margin-bottom: 20px; background: #e0f2fe; padding: 12px; border-radius: 6px; border: 1px solid #bae6fd; display: inline-flex; align-items: center; gap: 10px;">
+                    <input type="checkbox" id="checkActiveOnly" style="transform: scale(1.2);"> 
+                    <label for="checkActiveOnly" style="font-weight: bold; color: #0369a1; cursor: pointer;">Ocultar insumos sem processos ativos no momento</label>
+                </div>
+                
+                <p style="font-weight: bold; margin-bottom: 8px; color: #0f172a;">Filtrar por Processo Específico:</p>
+                
+                <!-- CAIXA DE SELEÇÃO CUSTOMIZADA -->
+                <div id="dropdownProcessos" class="dropdown-check-list">
+                    <div class="anchor" onclick="toggleDropdown()">
+                        <span id="dropdownTitle">Selecione os processos...</span>
+                        <i class="fas fa-chevron-down"></i>
+                    </div>
+                    <div class="items-container">
+                        <input type="text" id="procSearch" class="search-proc-input" placeholder="🔍 Pesquisar dentro da lista...">
+                        <ul id="procCheckboxList">
+                            <% processosAtivos.forEach(p => { %>
+                                <li class="proc-item" data-text="<%= p.nome.toLowerCase() %> <%= p.numero %>">
+                                    <input type="checkbox" class="proc-check" value="<%= p.id %>" id="proc_<%= p.id %>"> 
+                                    <label for="proc_<%= p.id %>" style="cursor: pointer; width: 100%; margin: 0;"><strong><%= p.numero %></strong> - <%= p.nome %></label>
+                                </li>
+                            <% }) %>
+                            <% if (processosAtivos.length === 0) { %>
+                                <li style="color: #64748b; font-size: 0.9rem; justify-content: center;">Nenhum processo ativo no momento.</li>
+                            <% } %>
+                        </ul>
+                    </div>
+                </div>
+
+            </div>
+        </div>
+
+        <div class="card-panel">
+            <div class="card-header-custom">
+                <i class="fas fa-dolly-flatbed"></i> Formulário de Entrada em Lote
+            </div>
+            <div class="card-body">
+                <form action="/estoque/entrada/lote" method="POST">
+                    
+                    <div class="table-responsive">
+                        <table class="table-custom" id="tabelaInsumos">
+                            <thead>
+                                <tr>
+                                    <th style="width: 45%;">Insumo / Descrição</th>
+                                    <th>Referência</th>
+                                    <th>Unidade</th>
+                                    <th style="text-align: center; color: #2563eb;">Qtd para Sede</th>
+                                    <th style="text-align: center; color: #8b5cf6;">Qtd para Complexo</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <% insumosGeral.forEach((item) => { %>
+                                    <tr class="insumo-row" 
+                                        data-text="<%= item.descricao.toLowerCase() %> <%= item.ref.toLowerCase() %>"
+                                        data-ids="<%= JSON.stringify(item.ids) %>">
+                                        <td>
+                                            <input type="hidden" name="insumos_ids[]" value="<%= item.id %>">
+                                            <strong><%= item.descricao %></strong>
+                                        </td>
+                                        <td><span style="background: #e2e8f0; padding: 2px 6px; border-radius: 4px; font-size: 0.8rem; font-weight: 600;"><%= item.ref %></span></td>
+                                        <td><%= item.unidade %></td>
+                                        <td style="text-align: center;">
+                                            <input type="number" name="qtd_sede[]" step="0.01" min="0" placeholder="0" class="input-qtd" style="border-color: #bfdbfe;">
+                                        </td>
+                                        <td style="text-align: center;">
+                                            <input type="number" name="qtd_complexo[]" step="0.01" min="0" placeholder="0" class="input-qtd" style="border-color: #ddd6fe;">
+                                        </td>
+                                    </tr>
+                                <% }) %>
+                            </tbody>
+                        </table>
+                    </div>
+
+                    <div style="margin-top: 25px; text-align: right; border-top: 1px solid #e2e8f0; padding-top: 20px;">
+                        <button type="submit" class="btn btn-primary" style="padding: 12px 35px; font-size: 1.05rem;"><i class="fas fa-save"></i> Confirmar e Salvar Entradas</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </main>
+
+    <script>
+        const insumoMap = <%- insumoProcessoMap %>; 
+
+        // 1. Abre/Fecha o painel de filtros inteiro
+        function toggleFiltersPanel() {
+            const panel = document.getElementById('filterOptions');
+            const icon = document.getElementById('accordionIcon');
+            if (panel.style.display === 'block') {
+                panel.style.display = 'none';
+                icon.classList.remove('fa-chevron-up');
+                icon.classList.add('fa-chevron-down');
+            } else {
+                panel.style.display = 'block';
+                icon.classList.remove('fa-chevron-down');
+                icon.classList.add('fa-chevron-up');
+            }
+        }
+
+        // 2. Abre/Fecha a caixa de seleção de processos
+        function toggleDropdown() {
+            const checkList = document.getElementById('dropdownProcessos');
+            checkList.classList.toggle('visible');
+        }
+
+        document.addEventListener('click', function(event) {
+            const checkList = document.getElementById('dropdownProcessos');
+            if (checkList && !checkList.contains(event.target)) {
+                checkList.classList.remove('visible');
+            }
+        });
+
+        // 3. Atualiza o título da caixa de seleção
+        function updateDropdownTitle() {
+            const checked = document.querySelectorAll('.proc-check:checked');
+            const title = document.getElementById('dropdownTitle');
+            if (checked.length === 0) {
+                title.innerHTML = 'Selecione os processos...';
+            } else if (checked.length === 1) {
+                title.innerHTML = '<span style="color:#2563eb; font-weight:bold;">1 processo selecionado</span>';
+            } else {
+                title.innerHTML = `<span style="color:#2563eb; font-weight:bold;">${checked.length} processos selecionados</span>`;
+            }
+        }
+
+        // 4. Lógica de Filtragem
+        function applyFilters() {
+            const query = document.getElementById('globalSearch').value.toLowerCase().trim();
+            const activeOnly = document.getElementById('checkActiveOnly').checked;
+            const selectedProcs = Array.from(document.querySelectorAll('.proc-check:checked')).map(c => parseInt(c.value));
+            
+            document.querySelectorAll('.insumo-row').forEach(row => {
+                const text = row.getAttribute('data-text');
+                const ids = JSON.parse(row.dataset.ids);
+                
+                const usedInSelectedProcs = selectedProcs.length === 0 || ids.some(id => (insumoMap[id] || []).some(pid => selectedProcs.includes(pid)));
+                const hasActiveProcess = activeOnly ? ids.some(id => (insumoMap[id] || []).length > 0) : true;
+                const matchesSearch = text.includes(query);
+
+                if (matchesSearch && usedInSelectedProcs && hasActiveProcess) {
+                    row.style.display = '';
+                } else {
+                    row.style.display = 'none';
+                }
+            });
+        }
+
+        // 5. Event Listeners
+        document.getElementById('globalSearch').addEventListener('input', applyFilters);
+        document.getElementById('checkActiveOnly').addEventListener('change', applyFilters);
+        
+        document.querySelectorAll('.proc-check').forEach(c => {
+            c.addEventListener('change', () => {
+                updateDropdownTitle();
+                applyFilters();
+            });
+        });
+        
+        // 6. Pesquisa dentro da caixa de seleção
+        document.getElementById('procSearch').addEventListener('input', function() {
+            const val = this.value.toLowerCase();
+            document.querySelectorAll('.proc-item').forEach(item => {
+                item.style.display = item.dataset.text.includes(val) ? 'flex' : 'none';
+            });
+        });
+    </script>
+</body>
+</html>
