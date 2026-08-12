@@ -1,0 +1,71 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <title>Entrada no Almoxarifado</title>
+    <link rel="stylesheet" href="/css/style.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        .table-responsive { width: 100%; overflow-x: auto; background: white; border-radius: 8px; box-shadow: 0 1px 3px rgba(0,0,0,0.1); margin-bottom: 30px; }
+        .table-custom { width: 100%; border-collapse: collapse; }
+        .table-custom th, .table-custom td { padding: 12px; border-bottom: 1px solid #e2e8f0; text-align: left; vertical-align: middle; word-break: break-word; }
+        .table-custom th { background-color: #f8fafc; color: #0f172a; font-weight: bold; }
+        
+        .form-entrada { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+        .form-entrada input { padding: 8px; border: 1px solid #94a3b8; border-radius: 4px; max-width: 120px; }
+    </style>
+</head>
+<body>
+    <%- include('../partials/sidebar') %>
+    
+    <main class="main-content">
+        <div class="page-header">
+            <div>
+                <h1>Registrar Entradas: <%= processo.nome %></h1>
+                <p style="color: #64748b; font-size: 1.1rem; margin-top: 5px;">Informe abaixo a quantidade de insumos que chegou ao almoxarifado.</p>
+            </div>
+            <a href="/estoque" class="btn" style="background:#e2e8f0; color:#334155;"><i class="fas fa-arrow-left"></i> Voltar</a>
+        </div>
+
+        <div class="table-responsive">
+            <table class="table-custom">
+                <thead>
+                    <tr>
+                        <th style="width: 25%;">Insumo (Unidade)</th>
+                        <th>Total Solicitado</th>
+                        <th>Já Chegou (Almox.)</th>
+                        <th>Falta Chegar (Almox.)</th>
+                        <% if (user && user.role !== 'Monitor' && user.role !== 'Coordenador') { %>
+                            <th>Registrar Chegada</th>
+                        <% } %>
+                    </tr>
+                </thead>
+                <tbody>
+                    <% processo.insumos_estoque.forEach(ins => { %>
+                        <tr>
+                            <td><strong><%= ins.descricao %></strong> (<%= ins.unidade %>)</td>
+                            <td style="font-size:1.1rem; color:#0f172a;"><strong><%= ins.qtd_arredondada %></strong></td>
+                            <td style="color:#10b981; font-size:1.1rem;"><strong><%= ins.quantidade_recebida %></strong></td>
+                            <td style="color:#ef4444; font-size:1.1rem;"><strong><%= ins.quantidade_pendente_almoxarifado %></strong></td>
+                            
+                            <% if (user && user.role !== 'Monitor' && user.role !== 'Coordenador') { %>
+                                <td>
+                                    <% if (ins.quantidade_pendente_almoxarifado > 0) { %>
+                                        <form action="/estoque/<%= processo.id %>/entrada" method="POST" class="form-entrada">
+                                            <input type="hidden" name="insumo_id" value="<%= ins.insumo_id %>">
+                                            <input type="number" name="quantidade" step="0.01" min="0.01" placeholder="Ex: 50" required>
+                                            <button type="submit" class="btn" style="background:#10b981; color:white; padding: 8px 12px;"><i class="fas fa-plus"></i></button>
+                                        </form>
+                                    <% } else { %>
+                                        <span style="color: #166534; font-weight: bold;"><i class="fas fa-check-circle"></i> Tudo Recebido</span>
+                                    <% } %>
+                                </td>
+                            <% } %>
+                        </tr>
+                    <% }) %>
+                </tbody>
+            </table>
+        </div>
+    </main>
+</body>
+</html>

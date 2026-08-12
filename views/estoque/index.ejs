@@ -1,0 +1,40 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <title>Almoxarifado</title>
+    <link rel="stylesheet" href="/css/style.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+</head>
+<body>
+    <%- include('../partials/sidebar') %>
+    
+    <main class="main-content">
+        <div class="page-header">
+            <h1>Almoxarifado - Controle por Processo</h1>
+            <p style="color:#64748b;">Selecione um processo para gerenciar as entradas de insumos.</p>
+        </div>
+
+        <div class="grid-cards">
+            <% processos.forEach(proc => { %>
+                <div class="card" style="border-top-color: #10b981;">
+                    <div style="display:flex; justify-content:space-between; margin-bottom:10px;">
+                        <h3><%= proc.nome %></h3>
+                        <span style="font-weight:bold; color:#64748b;">#<%= proc.numero %></span>
+                    </div>
+                    
+                    <p>Status Atual: 
+                        <span class="badge" style="background:#f1f5f9; color:#334155;"><%= proc.status %></span>
+                    </p>
+                    
+                    <div class="card-footer">
+                        <a href="/estoque/<%= proc.id %>" class="btn" style="background:#10b981; color:white; width: 100%; text-align: center;">
+                            <i class="fas fa-boxes"></i> Gerenciar Insumos
+                        </a>
+                    </div>
+                </div>
+            <% }) %>
+        </div>
+    </main>
+</body>
+</html>

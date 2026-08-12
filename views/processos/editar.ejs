@@ -1,0 +1,31 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <title>Editar Processo</title>
+    <link rel="stylesheet" href="/css/style.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+</head>
+<body>
+    <%- include('../partials/sidebar') %>
+    <main class="main-content">
+        <div class="page-header">
+            <h1>Editar Processo</h1>
+            <a href="/processos" class="btn" style="background:#e2e8f0; color:#334155;"><i class="fas fa-arrow-left"></i> Cancelar</a>
+        </div>
+        <div class="card" style="max-width: 600px;">
+            <form action="/processos/<%= processo.id %>/atualizar" method="POST">
+                <div style="margin-bottom: 20px;">
+                    <label style="display:block; font-weight:bold; margin-bottom:8px;">Número do Processo:</label>
+                    <input type="text" name="numero" value="<%= processo.numero %>" style="width:100%; padding:10px; border:1px solid #cbd5e1; border-radius:6px;" required>
+                </div>
+                <div style="margin-bottom: 20px;">
+                    <label style="display:block; font-weight:bold; margin-bottom:8px;">Nome da Demanda:</label>
+                    <input type="text" name="nome" value="<%= processo.nome %>" style="width:100%; padding:10px; border:1px solid #cbd5e1; border-radius:6px;" required>
+                </div>
+                <button type="submit" class="btn btn-primary"><i class="fas fa-save"></i> Salvar Alterações</button>
+            </form>
+        </div>
+    </main>
+</body>
+</html>

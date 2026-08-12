@@ -1,0 +1,21 @@
+<aside class="sidebar">
+    <div class="logo-area">
+        <!-- Logo adicionada aqui -->
+        <img src="/img/logo.png" alt="Logo" class="logo" style="width: 45px; height: auto; border-radius: 4px;">
+        <h2 class="brand">Controle de Insumos</h2>
+    </div>
+    
+    <div style="padding: 0 20px 20px; border-bottom: 1px solid rgba(255,255,255,0.1); margin-bottom: 10px;">
+        <div style="font-size:11px; color:#94a3b8; text-transform:uppercase; letter-spacing:0.5px; margin-bottom:5px;">Logado como</div>
+        <div style="font-weight:bold; color:white; display:flex; justify-content:space-between; align-items:center;">
+            <span><%= user ? user.username : 'Visitante' %></span>
+            <span style="font-size:10px; color:#94a3b8;">(<%= user ? user.role : '' %>)</span>
+        </div>
+    </div>
+
+    <nav class="nav-menu">
+        <a href="/processos" class="nav-item"><i class="fas fa-folder-open"></i> Processos & Demandas</a>
+        <a href="/estoque" class="nav-item"><i class="fas fa-boxes"></i> Almoxarifado</a>
+        <a href="/envios" class="nav-item"><i class="fas fa-truck-loading"></i> Envios para Produção</a>
+    </nav>
+</aside>

@@ -1,0 +1,97 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <title>Novo Processo</title>
+    <link rel="stylesheet" href="/css/style.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        .form-group { margin-bottom: 20px; }
+        .form-group label { display: block; font-weight: bold; margin-bottom: 8px; color: #0f172a; }
+        .form-control { width: 100%; padding: 10px; border: 1px solid #cbd5e1; border-radius: 6px; font-size: 1rem; }
+        .produto-row { display: flex; gap: 15px; margin-bottom: 15px; align-items: center; background: #f8fafc; padding: 15px; border-radius: 6px; border: 1px solid #e2e8f0; }
+        .produto-row select { flex: 2; }
+        .produto-row input { flex: 1; }
+    </style>
+</head>
+<body>
+    <%- include('../partials/sidebar') %>
+    
+    <main class="main-content">
+        <div class="page-header">
+            <h1>Criar Novo Processo</h1>
+            <a href="/processos" class="btn" style="background:#e2e8f0; color:#334155;"><i class="fas fa-arrow-left"></i> Cancelar</a>
+        </div>
+
+        <div class="card">
+            <form action="/processos/criar" method="POST">
+                <div class="form-group">
+                    <label>Número do Processo (O sistema removerá os pontos automaticamente)</label>
+                    <input type="text" name="numero" class="form-control" placeholder="Ex: 12.3456" required>
+                </div>
+                
+                <div class="form-group">
+                    <label>Nome da Demanda / Processo</label>
+                    <input type="text" name="nome" class="form-control" placeholder="Ex: Fardamento Escolar 2026" required>
+                </div>
+
+                <div class="section-title" style="background: #334155; color: white; padding: 10px 15px; margin-bottom: 15px; border-radius: 6px;">
+                    Produtos Vinculados
+                </div>
+                
+                <div id="produtos-container">
+                    <div class="produto-row">
+                        <select name="produtos_ids[]" class="form-control" required>
+                            <option value="">Selecione um Produto...</option>
+                            <% produtos.forEach(p => { %>
+                                <!-- Aqui entra o nome_combo criado no Service -->
+                                <option value="<%= p.id %>"><%= p.nome_combo %></option>
+                            <% }) %>
+                        </select>
+                        <input type="number" name="produtos_qtds[]" class="form-control" placeholder="Quantidade" min="1" required>
+                        <button type="button" class="btn btn-remover" style="background:#ef4444; color:white; padding:10px;"><i class="fas fa-trash"></i></button>
+                    </div>
+                </div>
+
+                <button type="button" id="btn-add-produto" class="btn" style="background:#10b981; color:white; margin-bottom: 20px;">
+                    <i class="fas fa-plus"></i> Adicionar Outro Produto
+                </button>
+
+                <div style="border-top: 1px solid #e2e8f0; padding-top: 20px; text-align: right;">
+                    <button type="submit" class="btn btn-primary" style="font-size: 1.1rem; padding: 12px 25px;"><i class="fas fa-save"></i> Salvar Processo</button>
+                </div>
+            </form>
+        </div>
+    </main>
+
+    <script>
+        document.getElementById('btn-add-produto').addEventListener('click', function() {
+            const container = document.getElementById('produtos-container');
+            const row = container.children[0].cloneNode(true);
+            
+            // Limpa os valores da nova linha
+            row.querySelector('select').value = '';
+            row.querySelector('input').value = '';
+            
+            // Adiciona evento de remover na nova linha
+            row.querySelector('.btn-remover').addEventListener('click', function() {
+                if(container.children.length > 1) {
+                    row.remove();
+                }
+            });
+            
+            container.appendChild(row);
+        });
+
+        // Adiciona evento de remover na primeira linha já existente
+        document.querySelector('.btn-remover').addEventListener('click', function(e) {
+            const container = document.getElementById('produtos-container');
+            if(container.children.length > 1) {
+                e.target.closest('.produto-row').remove();
+            } else {
+                alert('O processo precisa ter pelo menos um produto vinculado.');
+            }
+        });
+    </script>
+</body>
+</html>
