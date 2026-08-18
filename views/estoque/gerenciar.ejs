@@ -42,26 +42,28 @@
                 </thead>
                 <tbody>
                     <% processo.insumos_estoque.forEach(ins => { %>
-                        <tr>
-                            <td><strong><%= ins.descricao %></strong> (<%= ins.unidade %>)</td>
-                            <td style="font-size:1.1rem; color:#0f172a;"><strong><%= ins.qtd_arredondada %></strong></td>
-                            <td style="color:#10b981; font-size:1.1rem;"><strong><%= ins.quantidade_recebida %></strong></td>
-                            <td style="color:#ef4444; font-size:1.1rem;"><strong><%= ins.quantidade_pendente_almoxarifado %></strong></td>
-                            
-                            <% if (user && user.role !== 'Monitor' && user.role !== 'Coordenador') { %>
-                                <td>
-                                    <% if (ins.quantidade_pendente_almoxarifado > 0) { %>
-                                        <form action="/estoque/<%= processo.id %>/entrada" method="POST" class="form-entrada">
-                                            <input type="hidden" name="insumo_id" value="<%= ins.insumo_id %>">
-                                            <input type="number" name="quantidade" step="0.01" min="0.01" placeholder="Ex: 50" required>
-                                            <button type="submit" class="btn" style="background:#10b981; color:white; padding: 8px 12px;"><i class="fas fa-plus"></i></button>
-                                        </form>
-                                    <% } else { %>
-                                        <span style="color: #166534; font-weight: bold;"><i class="fas fa-check-circle"></i> Tudo Recebido</span>
-                                    <% } %>
-                                </td>
-                            <% } %>
-                        </tr>
+                        <% if (ins.ref && ins.ref.trim() !== '') { %>
+                            <tr>
+                                <td><strong><%= ins.descricao %></strong> (<%= ins.unidade %>)</td>
+                                <td style="font-size:1.1rem; color:#0f172a;"><strong><%= ins.qtd_arredondada %></strong></td>
+                                <td style="color:#10b981; font-size:1.1rem;"><strong><%= ins.quantidade_recebida %></strong></td>
+                                <td style="color:#ef4444; font-size:1.1rem;"><strong><%= ins.quantidade_pendente_almoxarifado %></strong></td>
+                                
+                                <% if (user && user.role !== 'Monitor' && user.role !== 'Coordenador') { %>
+                                    <td>
+                                        <% if (ins.quantidade_pendente_almoxarifado > 0) { %>
+                                            <form action="/estoque/<%= processo.id %>/entrada" method="POST" class="form-entrada">
+                                                <input type="hidden" name="insumo_id" value="<%= ins.insumo_id %>">
+                                                <input type="number" name="quantidade" step="0.01" min="0.01" placeholder="Ex: 50" required>
+                                                <button type="submit" class="btn" style="background:#10b981; color:white; padding: 8px 12px;"><i class="fas fa-plus"></i></button>
+                                            </form>
+                                        <% } else { %>
+                                            <span style="color: #166534; font-weight: bold;"><i class="fas fa-check-circle"></i> Tudo Recebido</span>
+                                        <% } %>
+                                    </td>
+                                <% } %>
+                            </tr>
+                        <% } %>
                     <% }) %>
                 </tbody>
             </table>

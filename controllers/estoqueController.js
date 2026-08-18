@@ -3,7 +3,11 @@ const EstoqueService = require('../services/estoqueService');
 const estoqueController = {
     index: async (req, res) => {
         try {
-            const insumosGeral = await EstoqueService.listarEstoqueGeral();
+            let insumosGeral = await EstoqueService.listarEstoqueGeral();
+            
+            // FILTRO: Remove insumos que não possuem "ref" (como salários/taxas)
+            insumosGeral = insumosGeral.filter(i => i.ref && i.ref.trim() !== '');
+
             const { map, processos } = await EstoqueService.mapearUsoPorProcesso();
             res.render('estoque/index', { insumosGeral, insumoProcessoMap: JSON.stringify(map), processosAtivos: processos, user: res.locals.user });
         } catch (error) { res.status(500).send('Erro ao carregar almoxarifado geral'); }
@@ -12,7 +16,11 @@ const estoqueController = {
     novaEntrada: async (req, res) => {
         try {
             if (res.locals.user && (res.locals.user.role === 'Monitor' || res.locals.user.role === 'Coordenador')) return res.status(403).send('Sem permissão.');
-            const insumosGeral = await EstoqueService.listarEstoqueGeral();
+            let insumosGeral = await EstoqueService.listarEstoqueGeral();
+            
+            // FILTRO: Remove insumos que não possuem "ref"
+            insumosGeral = insumosGeral.filter(i => i.ref && i.ref.trim() !== '');
+
             const { map, processos } = await EstoqueService.mapearUsoPorProcesso(); 
             res.render('estoque/entrada', { insumosGeral, insumoProcessoMap: JSON.stringify(map), processosAtivos: processos, user: res.locals.user });
         } catch (error) { res.status(500).send('Erro ao carregar tela'); }
@@ -55,7 +63,6 @@ const estoqueController = {
         } catch (error) { res.status(500).send('Erro ao carregar detalhes'); }
     },
 
-    // NOVOS CONTROLADORES DE RESERVA
     editarReserva: async (req, res) => {
         try {
             if (res.locals.user && (res.locals.user.role === 'Monitor' || res.locals.user.role === 'Coordenador')) return res.status(403).send('Sem permissão.');

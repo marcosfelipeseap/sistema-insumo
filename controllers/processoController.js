@@ -70,23 +70,40 @@ exports.detalhes = async (req, res) => {
             });
         }
 
+        // CORREÇÃO: Cria um mapa puxando as Refs reais do Estoque para garantir o filtro
+        const insumosGerais = await EstoqueService.listarEstoqueGeral();
+        const mapaRef = {};
+        insumosGerais.forEach(item => {
+            if (item.ids && Array.isArray(item.ids)) {
+                item.ids.forEach(id => mapaRef[id] = item.ref);
+            } else if (item.id) {
+                mapaRef[item.id] = item.ref;
+            }
+        });
+
         // 4. Junta tudo em uma lista completa
         const listaBase = processo.insumos_consolidados || [];
-        processo.insumos_completos = listaBase.map(ins => {
-            const almoxarifado = mapaEstoque[ins.insumo_id] || 0;
-            const separado = mapaReservas[ins.insumo_id] || 0;
-            const enviado = mapaEnviado[ins.insumo_id] || 0;
-            const necessario = ins.qtd_arredondada || 0;
+        processo.insumos_completos = listaBase
+            // Filtra com segurança cruzando os IDs com o mapa de Refs
+            .filter(ins => {
+                const ref = ins.ref !== undefined ? ins.ref : mapaRef[ins.insumo_id];
+                return ref && String(ref).trim() !== '';
+            })
+            .map(ins => {
+                const almoxarifado = mapaEstoque[ins.insumo_id] || 0;
+                const separado = mapaReservas[ins.insumo_id] || 0;
+                const enviado = mapaEnviado[ins.insumo_id] || 0;
+                const necessario = ins.qtd_arredondada || 0;
 
-            return {
-                ...ins,
-                qtd_almoxarifado: almoxarifado,
-                qtd_separada: separado,
-                qtd_enviada: enviado,
-                qtd_pendente: (necessario - enviado > 0) ? necessario - enviado : 0,
-                status_concluido: enviado >= necessario
-            };
-        });
+                return {
+                    ...ins,
+                    qtd_almoxarifado: almoxarifado,
+                    qtd_separada: separado,
+                    qtd_enviada: enviado,
+                    qtd_pendente: (necessario - enviado > 0) ? necessario - enviado : 0,
+                    status_concluido: enviado >= necessario
+                };
+            });
 
         res.render('processos/detalhes', { processo, user: res.locals.user });
     } catch (error) {
@@ -95,11 +112,36 @@ exports.detalhes = async (req, res) => {
     }
 };
 
-// NOVA FUNÇÃO: Renderiza apenas a tela de composição de custo/insumo
+// Renderiza apenas a tela de composição de custo/insumo
 exports.composicao = async (req, res) => {
     try {
         const processo = await ProcessoService.obterDetalhesComposicao(req.params.id);
         if (!processo) return res.status(404).send('Processo não encontrado');
+        
+        // CORREÇÃO: Cria o mapa de referências
+        const insumosGerais = await EstoqueService.listarEstoqueGeral();
+        const mapaRef = {};
+        insumosGerais.forEach(item => {
+            if (item.ids && Array.isArray(item.ids)) {
+                item.ids.forEach(id => mapaRef[id] = item.ref);
+            } else if (item.id) {
+                mapaRef[item.id] = item.ref;
+            }
+        });
+
+        // Aplica o filtro na composição cruzando o mapaRef
+        if (processo.produtos) {
+            processo.produtos.forEach(prod => {
+                if (prod.itens) {
+                    prod.itens = prod.itens.filter(item => {
+                        if (!item.insumo) return false;
+                        const insumoId = item.insumo.id || item.insumo_id;
+                        const ref = item.insumo.ref !== undefined ? item.insumo.ref : mapaRef[insumoId];
+                        return ref && String(ref).trim() !== '';
+                    });
+                }
+            });
+        }
         
         res.render('processos/composicao', { processo, user: res.locals.user });
     } catch (error) {
