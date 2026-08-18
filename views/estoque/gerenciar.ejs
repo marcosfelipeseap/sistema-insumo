@@ -12,7 +12,8 @@
         .table-custom th { background-color: #f8fafc; color: #0f172a; font-weight: bold; }
         
         .form-entrada { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
-        .form-entrada input { padding: 8px; border: 1px solid #94a3b8; border-radius: 4px; max-width: 120px; }
+        .form-entrada input, .form-entrada select { padding: 8px; border: 1px solid #94a3b8; border-radius: 4px; }
+        .form-entrada input { max-width: 100px; }
     </style>
 </head>
 <body>
@@ -54,6 +55,14 @@
                                         <% if (ins.quantidade_pendente_almoxarifado > 0) { %>
                                             <form action="/estoque/<%= processo.id %>/entrada" method="POST" class="form-entrada">
                                                 <input type="hidden" name="insumo_id" value="<%= ins.insumo_id %>">
+                                                
+                                                <select name="local" required style="background: #f8fafc;">
+                                                    <option value="" disabled selected>De onde?</option>
+                                                    <option value="SEDE">Sede</option>
+                                                    <option value="COMPLEXO">Complexo</option>
+                                                    <option value="REGIONAL">Regional</option>
+                                                </select>
+
                                                 <input type="number" name="quantidade" step="0.01" min="0.01" placeholder="Ex: 50" required>
                                                 <button type="submit" class="btn" style="background:#10b981; color:white; padding: 8px 12px;"><i class="fas fa-plus"></i></button>
                                             </form>

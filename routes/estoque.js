@@ -19,4 +19,6 @@ router.post('/processo/:processoId/separar', estoqueController.separarInsumo);
 // Rota Raiz
 router.get('/', estoqueController.index);
 
+router.post('/insumo/ajustar', estoqueController.ajustarEstoque);
+
 module.exports = router;

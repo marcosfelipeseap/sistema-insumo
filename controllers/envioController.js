@@ -17,6 +17,25 @@ const envioController = {
             const processo = await EstoqueService.listarSaldosEnvio(req.params.id);
             if (!processo) return res.status(404).send("Processo não encontrado");
 
+            // CORREÇÃO: Cria o mapa de referências para barrar salários/taxas
+            const insumosGerais = await EstoqueService.listarEstoqueGeral();
+            const mapaRef = {};
+            insumosGerais.forEach(item => {
+                if (item.ids && Array.isArray(item.ids)) {
+                    item.ids.forEach(id => mapaRef[id] = item.ref);
+                } else if (item.id) {
+                    mapaRef[item.id] = item.ref;
+                }
+            });
+
+            // Aplica o filtro de segurança para esconder itens sem "ref"
+            if (processo.insumos_envio) {
+                processo.insumos_envio = processo.insumos_envio.filter(ins => {
+                    const ref = ins.ref !== undefined ? ins.ref : mapaRef[ins.insumo_id];
+                    return ref && String(ref).trim() !== '';
+                });
+            }
+
             // Busca o histórico formatado em lotes
             processo.historico_lotes = await EstoqueService.obterHistoricoEnvios(processo.id);
 

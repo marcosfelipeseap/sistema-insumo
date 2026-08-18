@@ -8,9 +8,12 @@
     <style>
         .table-responsive { width: 100%; overflow-x: auto; background: white; border-radius: 8px; box-shadow: 0 1px 3px rgba(0,0,0,0.1); margin-bottom: 30px; }
         .table-custom { width: 100%; border-collapse: collapse; }
-        .table-custom th, .table-custom td { padding: 12px 15px; border-bottom: 1px solid #e2e8f0; text-align: left; word-break: break-word; }
+        .table-custom th, .table-custom td { padding: 12px 15px; border-bottom: 1px solid #e2e8f0; text-align: left; word-break: break-word; vertical-align: middle; }
         .table-custom th { background-color: #f8fafc; color: #0f172a; font-weight: bold; }
         .info-card { background: white; padding: 20px; border-radius: 8px; box-shadow: 0 1px 3px rgba(0,0,0,0.1); margin-bottom: 25px; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 15px; }
+        
+        .form-ajuste input { padding: 8px 12px; border: 1px solid #cbd5e1; border-radius: 6px; font-weight: bold; color: #0f172a; outline: none; }
+        .form-ajuste input:focus { border-color: #3b82f6; }
     </style>
 </head>
 <body>
@@ -20,7 +23,7 @@
         <div class="page-header">
             <div>
                 <h1>Detalhes de Utilização do Insumo</h1>
-                <p style="color:#64748b;">Visualize os produtos do orçamento e as demandas onde este material é aplicado.</p>
+                <p style="color:#64748b;">Visualize os saldos, demandas e todo o histórico deste material.</p>
             </div>
             <a href="/estoque" class="btn" style="background:#e2e8f0; color:#334155;"><i class="fas fa-arrow-left"></i> Voltar ao Almoxarifado</a>
         </div>
@@ -30,23 +33,65 @@
                 <h2 style="color: #0f172a; margin-bottom: 5px;"><%= insumo.descricao %></h2>
                 <p style="color: #64748b;">Unidade: <strong><%= insumo.unidade %></strong> | Referência (Ref): <strong><%= insumo.ref || 'N/A' %></strong></p>
             </div>
-            <div style="display: flex; gap: 20px; background: #f8fafc; padding: 10px 20px; border-radius: 6px; border: 1px solid #e2e8f0;">
-                <div>
-                    <span style="font-size: 0.8rem; color: #64748b; display: block;">Saldo na Sede</span>
-                    <strong style="color: #2563eb; font-size: 1.1rem;"><%= insumo.estoque.qtd_sede %></strong>
+            
+            <div style="display: flex; gap: 20px; align-items: center; flex-wrap: wrap;">
+                <!-- Bloquinhos de Saldo -->
+                <div style="display: flex; gap: 15px; background: #f8fafc; padding: 10px 20px; border-radius: 6px; border: 1px solid #e2e8f0;">
+                    <div>
+                        <span style="font-size: 0.8rem; color: #64748b; display: block;">Saldo na Sede</span>
+                        <strong style="color: #2563eb; font-size: 1.1rem;"><%= insumo.estoque.qtd_sede %></strong>
+                    </div>
+                    <div>
+                        <span style="font-size: 0.8rem; color: #64748b; display: block;">Saldo no Complexo</span>
+                        <strong style="color: #8b5cf6; font-size: 1.1rem;"><%= insumo.estoque.qtd_complexo %></strong>
+                    </div>
+                    <div>
+                        <span style="font-size: 0.8rem; color: #64748b; display: block;">Saldo na Regional</span>
+                        <strong style="color: #0f766e; font-size: 1.1rem;"><%= insumo.estoque.qtd_regional %></strong>
+                    </div>
+                    <div style="background: #e0f2fe; padding: 0 10px; border-radius: 4px;">
+                        <span style="font-size: 0.8rem; color: #0284c7; display: block; font-weight: bold;" title="Soma das Reservas Ativas">TOTAL SEPARADO</span>
+                        <strong style="color: #0284c7; font-size: 1.2rem;">
+                            <%= (insumo.separacoes || []).reduce((acc, sep) => acc + sep.quantidade_separada, 0) %>
+                        </strong>
+                    </div>
                 </div>
-                <div>
-                    <span style="font-size: 0.8rem; color: #64748b; display: block;">Saldo no Complexo</span>
-                    <strong style="color: #8b5cf6; font-size: 1.1rem;"><%= insumo.estoque.qtd_complexo %></strong>
-                </div>
-                <div style="background: #e0f2fe; padding: 0 10px; border-radius: 4px;">
-                    <span style="font-size: 0.8rem; color: #0284c7; display: block; font-weight: bold;">TOTAL SEPARADO</span>
-                    <strong style="color: #0284c7; font-size: 1.2rem;">
-                        <!-- Soma todas as quantidades do array separacoes -->
-                        <%= (insumo.separacoes || []).reduce((acc, sep) => acc + sep.quantidade_separada, 0) %>
-                    </strong>
-                </div>
+
+                <!-- Botão Ajustar -->
+                <% if (!user || (user.role !== 'Monitor' && user.role !== 'Coordenador')) { %>
+                    <button class="btn" style="background:#f59e0b; color:white; height: fit-content; padding: 10px 15px;" onclick="document.getElementById('formAjusteContainer').style.display = 'block'">
+                        <i class="fas fa-sliders-h"></i> Ajustar Saldos Físicos
+                    </button>
+                <% } %>
             </div>
+        </div>
+
+        <!-- FORMULÁRIO DE AJUSTE -->
+        <div id="formAjusteContainer" style="display:none; background: #fef3c7; padding: 20px; border-radius: 8px; border: 1px solid #fde68a; margin-bottom: 25px;">
+            <h3 style="margin-bottom: 15px; color: #92400e; font-size: 1.1rem;"><i class="fas fa-exclamation-circle"></i> Ajuste Manual de Estoque Físico</h3>
+            <form action="/estoque/insumo/ajustar" method="POST" class="form-ajuste" style="display: flex; flex-wrap: wrap; gap: 15px; align-items: flex-end;">
+                <input type="hidden" name="insumo_id" value="<%= insumo.id %>">
+                <div>
+                    <label style="font-size: 0.85rem; font-weight: bold; color: #92400e; display: block; margin-bottom: 5px;">Sede (Qtd. Real):</label>
+                    <input type="number" name="qtd_sede" step="0.01" min="0" value="<%= insumo.estoque.qtd_sede %>" required style="width: 120px;">
+                </div>
+                <div>
+                    <label style="font-size: 0.85rem; font-weight: bold; color: #92400e; display: block; margin-bottom: 5px;">Complexo (Qtd. Real):</label>
+                    <input type="number" name="qtd_complexo" step="0.01" min="0" value="<%= insumo.estoque.qtd_complexo %>" required style="width: 120px;">
+                </div>
+                <div>
+                    <label style="font-size: 0.85rem; font-weight: bold; color: #92400e; display: block; margin-bottom: 5px;">Regional (Qtd. Real):</label>
+                    <input type="number" name="qtd_regional" step="0.01" min="0" value="<%= insumo.estoque.qtd_regional %>" required style="width: 120px;">
+                </div>
+                <div style="flex: 1; min-width: 250px;">
+                    <label style="font-size: 0.85rem; font-weight: bold; color: #92400e; display: block; margin-bottom: 5px;">Justificativa / Motivo <span style="color: #ef4444;">*</span></label>
+                    <input type="text" name="justificativa" placeholder="Ex: Correção de contagem, Perda de material, etc." required style="width: 100%;">
+                </div>
+                <div style="display: flex; gap: 10px;">
+                    <button type="submit" class="btn" style="background:#10b981; color:white; padding: 10px 20px;"><i class="fas fa-save"></i> Salvar</button>
+                    <button type="button" class="btn" style="background:#94a3b8; color:white; padding: 10px 20px;" onclick="document.getElementById('formAjusteContainer').style.display = 'none'">Cancelar</button>
+                </div>
+            </form>
         </div>
 
         <!-- SEÇÃO 1: SEPARAÇÕES ATIVAS (RESERVAS) -->
@@ -59,7 +104,10 @@
                     <tr>
                         <th>Processo / Demanda</th>
                         <th>Status do Processo</th>
-                        <th style="text-align: center;">Quantidade Separada (Reservada)</th>
+                        <th style="text-align: center;">Quantidade Reservada</th>
+                        <% if (!user || (user.role !== 'Monitor' && user.role !== 'Coordenador')) { %>
+                            <th style="text-align: center; width: 20%;">Ações (Alterar Separado)</th>
+                        <% } %>
                     </tr>
                 </thead>
                 <tbody>
@@ -70,14 +118,31 @@
                                     <strong><%= sep.nome %></strong><br>
                                     <span style="color: #64748b; font-size: 0.85rem;">Nº do Processo: <%= sep.numero %></span>
                                 </td>
-                                <td><span class="badge badge-pendente" style="background: #f1f5f9; color: #334155; padding: 4px 8px; border-radius: 4px;"><%= sep.status %></span></td>
+                                <td><span style="background: #f1f5f9; color: #334155; padding: 4px 8px; border-radius: 4px;"><%= sep.status %></span></td>
                                 <td style="text-align: center; font-size: 1.1rem; color: #0284c7; background: #f0f9ff;"><strong><%= sep.quantidade_separada %> <%= insumo.unidade %></strong></td>
+                                
+                                <% if (!user || (user.role !== 'Monitor' && user.role !== 'Coordenador')) { %>
+                                    <td style="background: #f0f9ff; text-align: center;">
+                                        <!-- Formulário para Devolver (Apagar) a Reserva -->
+                                        <form action="/estoque/reserva/deletar" method="POST" style="display:flex; gap: 5px; justify-content: center; align-items: center;" onsubmit="return confirm('Isso irá remover a reserva deste processo. Confirma?');">
+                                            <input type="hidden" name="reserva_id" value="<%= sep.reserva_id %>">
+                                            <input type="hidden" name="insumo_id" value="<%= insumo.id %>">
+                                            <select name="local_retorno" required style="padding: 6px; font-size: 0.85rem; border-radius: 4px; border: 1px solid #cbd5e1; outline: none;">
+                                                <option value="" disabled selected>Devolver para...</option>
+                                                <option value="SEDE">Sede</option>
+                                                <option value="COMPLEXO">Complexo</option>
+                                                <option value="REGIONAL">Regional</option>
+                                            </select>
+                                            <button type="submit" class="btn" style="background: #ef4444; color: white; padding: 6px 10px;" title="Devolver material e apagar reserva"><i class="fas fa-trash-undo"></i> Devolver</button>
+                                        </form>
+                                    </td>
+                                <% } %>
                             </tr>
                         <% }) %>
                     <% } else { %>
                         <tr>
-                            <td colspan="3" style="text-align: center; color: #64748b; padding: 25px;">
-                                <i class="fas fa-info-circle"></i> Não há nenhuma quantidade deste material separada (reservada) no momento.
+                            <td colspan="4" style="text-align: center; color: #64748b; padding: 25px;">
+                                <i class="fas fa-info-circle"></i> Não há nenhuma quantidade deste material reservada no momento.
                             </td>
                         </tr>
                     <% } %>
@@ -87,7 +152,7 @@
 
         <!-- SEÇÃO 2: PRODUTOS DO ORÇAMENTO QUE USAM ESTE INSUMO -->
         <div class="section-title" style="background: #334155; color: white; padding: 12px 15px; border-radius: 6px 6px 0 0; font-weight: bold; margin-top: 30px; margin-bottom: 0;">
-            <i class="fas fa-list-alt"></i> PRODUTOS DO ORÇAMENTO QUE UTILIZAM ESTE INSUMO (FICHA TÉCNICA)
+            <i class="fas fa-list-alt"></i> PRODUTOS DO ORÇAMENTO QUE UTILIZAM ESTE INSUMO
         </div>
         <div class="table-responsive">
             <table class="table-custom">
@@ -95,7 +160,7 @@
                     <tr>
                         <th>Produto</th>
                         <th>Grupo</th>
-                        <th style="text-align: right;">Índice (Quantidade Base por Unidade do Produto)</th>
+                        <th style="text-align: right;">Índice (Qtd Base)</th>
                     </tr>
                 </thead>
                 <tbody>
@@ -114,7 +179,7 @@
             </table>
         </div>
 
-        <!-- SEÇÃO 3: PROCESSOS ATIVOS QUE ESTÃO CONSUMINDO ESTE INSUMO -->
+        <!-- SEÇÃO 3: PROCESSOS ATIVOS -->
         <div class="section-title" style="background: #1e293b; color: white; padding: 12px 15px; border-radius: 6px 6px 0 0; font-weight: bold; margin-top: 30px; margin-bottom: 0;">
             <i class="fas fa-project-diagram"></i> PROCESSOS ATIVOS VINCULADOS A ESTE INSUMO
         </div>
@@ -124,7 +189,7 @@
                     <tr>
                         <th>Processo / Demanda</th>
                         <th>Status</th>
-                        <th>Produtos Vinculados que Consomem este Insumo</th>
+                        <th>Consumo Estimado (Ficha Técnica)</th>
                     </tr>
                 </thead>
                 <tbody>
@@ -135,16 +200,13 @@
                                     <strong><%= proc.nome %></strong><br>
                                     <span style="color: #64748b; font-size: 0.85rem;">Nº do Processo: <%= proc.numero %></span>
                                 </td>
-                                <td>
-                                    <span style="background: #f1f5f9; color: #334155; padding: 4px 8px; border-radius: 4px; font-size: 0.85rem;"><%= proc.status %></span>
-                                </td>
+                                <td><span style="background: #f1f5f9; padding: 4px 8px; border-radius: 4px; font-size: 0.85rem;"><%= proc.status %></span></td>
                                 <td>
                                     <ul style="margin: 0; padding-left: 20px;">
                                         <% proc.produtos.forEach(prod => { %>
                                             <li style="margin-bottom: 5px;">
-                                                <strong><%= prod.produto_nome %></strong> 
-                                                (Qtd do Produto: <%= prod.quantidade_produto %>) → 
-                                                <span style="color: #047857; font-weight: bold;">Gera demanda de: <%= prod.quantidade_insumo_necessaria.toFixed(2) %> <%= insumo.unidade %></span>
+                                                <strong><%= prod.produto_nome %></strong> (Qtd: <%= prod.quantidade_produto %>) → 
+                                                <span style="color: #047857; font-weight: bold;">Demanda: <%= prod.quantidade_insumo_necessaria.toFixed(2) %> <%= insumo.unidade %></span>
                                             </li>
                                         <% }) %>
                                     </ul>
@@ -152,11 +214,50 @@
                             </tr>
                         <% }) %>
                     <% } else { %>
-                        <tr>
-                            <td colspan="3" style="text-align: center; color: #64748b; padding: 25px;">
-                                <i class="fas fa-info-circle"></i> Este insumo faz parte do orçamento, mas no momento não está vinculado a nenhum processo ativo criado no sistema.
-                            </td>
-                        </tr>
+                        <tr><td colspan="3" style="text-align: center; color: #64748b; padding: 25px;">Nenhum processo ativo vinculado no momento.</td></tr>
+                    <% } %>
+                </tbody>
+            </table>
+        </div>
+
+        <!-- SEÇÃO 4: HISTÓRICO DE MOVIMENTAÇÕES (AQUI APARECE A JUSTIFICATIVA) -->
+        <div class="section-title" style="background: #475569; color: white; padding: 12px 15px; border-radius: 6px 6px 0 0; font-weight: bold; margin-top: 30px; margin-bottom: 0;">
+            <i class="fas fa-history"></i> HISTÓRICO DE ENTRADAS, SAÍDAS E AJUSTES
+        </div>
+        <div class="table-responsive">
+            <table class="table-custom">
+                <thead>
+                    <tr>
+                        <th style="width: 15%;">Data</th>
+                        <th style="width: 15%;">Tipo</th>
+                        <th style="width: 10%;">Qtd</th>
+                        <th style="width: 15%;">Usuário</th>
+                        <th style="width: 45%;">Justificativa / Observação</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <% if (insumo.historico_movimentacoes && insumo.historico_movimentacoes.length > 0) { %>
+                        <% insumo.historico_movimentacoes.forEach(mov => { %>
+                            <tr>
+                                <td style="font-size: 0.85rem; color: #64748b;">
+                                    <%= new Date(mov.created_at || mov.data_movimentacao).toLocaleString('pt-BR') %>
+                                </td>
+                                <td>
+                                    <span style="background: #f1f5f9; padding: 3px 6px; border-radius: 4px; font-size: 0.8rem; font-weight: bold; color: #334155;">
+                                        <%= mov.tipo %>
+                                    </span>
+                                </td>
+                                <td style="font-weight: bold; font-size: 1.05rem; color: <%= mov.tipo.includes('ENTRADA') || mov.tipo.includes('DEVOLUCAO') || mov.tipo.includes('MAIS') ? '#10b981' : (mov.tipo.includes('SAIDA') || mov.tipo.includes('MENOS') ? '#ef4444' : '#0f172a') %>;">
+                                    <%= mov.quantidade %>
+                                </td>
+                                <td><i class="fas fa-user-circle" style="color:#cbd5e1;"></i> <%= mov.recebido_por || mov.entregue_por || 'Sistema' %></td>
+                                <td style="font-size: 0.95rem; color: #1e293b; font-style: italic;">
+                                    "<%= mov.observacao %>"
+                                </td>
+                            </tr>
+                        <% }) %>
+                    <% } else { %>
+                        <tr><td colspan="5" style="text-align: center; color: #64748b; padding: 25px;">Nenhuma movimentação ou ajuste registrado no histórico.</td></tr>
                     <% } %>
                 </tbody>
             </table>

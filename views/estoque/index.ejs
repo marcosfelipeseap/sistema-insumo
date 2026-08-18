@@ -41,7 +41,7 @@
         <div class="page-header" style="margin-bottom: 20px;">
             <div>
                 <h1>Almoxarifado Central</h1>
-                <p style="color:#64748b; font-size: 1.05rem; margin-top: 5px;">Controle unificado de insumos entre a Sede e o Complexo.</p>
+                <p style="color:#64748b; font-size: 1.05rem; margin-top: 5px;">Controle unificado de insumos da Sede, Complexo e Regional.</p>
             </div>
             <div style="display: flex; gap: 12px;">
                 <% if (!user || (user.role !== 'Monitor' && user.role !== 'Coordenador')) { %>
@@ -94,10 +94,11 @@
                 <table class="table-custom" id="estoqueTable">
                     <thead>
                         <tr>
-                            <th style="width: 35%;">Insumo (Clique para Detalhes)</th>
+                            <th style="width: 30%;">Insumo (Clique para Detalhes)</th>
                             <th>Referência</th>
                             <th style="text-align: center; color: #2563eb;">Estoque Sede</th>
                             <th style="text-align: center; color: #8b5cf6;">Estoque Complexo</th>
+                            <th style="text-align: center; color: #0f766e;">Estoque Regional</th>
                             <th style="text-align: center; background: #f1f5f9;">Disponível Fisicamente</th>
                             <th style="text-align: center; color: #0284c7; background: #e0f2fe;">Separado (Reserva)</th>
                         </tr>
@@ -107,8 +108,9 @@
                             <tr class="insumo-row" data-name="<%= item.descricao.toLowerCase() %>" data-ref="<%= item.ref.toLowerCase() %>" data-ids="<%= JSON.stringify(item.ids) %>">
                                 <td><a href="/estoque/insumo/<%= item.id %>/detalhes" class="link-insumo"><i class="fas fa-search-plus" style="font-size: 0.85rem;"></i> <%= item.descricao %> (<%= item.unidade %>)</a></td>
                                 <td><span style="background: #e2e8f0; padding: 3px 8px; border-radius: 4px; font-size: 0.8rem; font-weight: 600;"><%= item.ref %></span></td>
-                                <td style="text-align: center; color: #2563eb; font-weight: 700;"><%= item.qtd_sede %></td>
-                                <td style="text-align: center; color: #8b5cf6; font-weight: 700;"><%= item.qtd_complexo %></td>
+                                <td style="text-align: center; color: #2563eb; font-weight: 700;"><%= item.qtd_sede || 0 %></td>
+                                <td style="text-align: center; color: #8b5cf6; font-weight: 700;"><%= item.qtd_complexo || 0 %></td>
+                                <td style="text-align: center; color: #0f766e; font-weight: 700;"><%= item.qtd_regional || 0 %></td>
                                 <td style="text-align: center; font-size: 1.05rem; font-weight: 700; background: #f8fafc;"><%= item.total_geral %></td>
                                 <td style="text-align: center; color: #0284c7; font-weight: 700; background: #f0f9ff;"><%= item.qtd_separada %></td>
                             </tr>

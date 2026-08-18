@@ -6,35 +6,45 @@
     <link rel="stylesheet" href="/css/style.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <style>
-        .table-responsive { width: 100%; overflow-x: auto; background: white; border-radius: 8px; box-shadow: 0 1px 3px rgba(0,0,0,0.1); margin-bottom: 20px; }
+        .table-responsive { width: 100%; overflow-x: auto; background: white; border-radius: 8px; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1); margin-bottom: 20px; border: 1px solid #e2e8f0; }
         .table-custom { width: 100%; border-collapse: collapse; }
-        .table-custom th, .table-custom td { padding: 12px 10px; border-bottom: 1px solid #e2e8f0; text-align: left; vertical-align: middle; }
-        .table-custom th { background-color: #f8fafc; color: #0f172a; font-weight: bold; font-size: 0.85rem; }
-        .box-info { display: inline-block; padding: 3px 6px; border-radius: 4px; font-size: 0.75rem; font-weight: bold; margin-bottom: 2px; }
-        .box-reserva { background: #e0f2fe; color: #0284c7; }
-        .box-sede { background: #dbeafe; color: #1d4ed8; }
-        .box-comp { background: #ede9fe; color: #6d28d9; }
+        .table-custom th, .table-custom td { padding: 16px 12px; border-bottom: 1px solid #e2e8f0; text-align: left; vertical-align: middle; }
+        .table-custom th { background-color: #f8fafc; color: #475569; font-weight: bold; font-size: 0.85rem; text-transform: uppercase; border-bottom: 2px solid #cbd5e1; }
         
-        .check-item { transform: scale(1.3); cursor: pointer; }
-        .input-lote { padding: 8px; border: 1px solid #cbd5e1; border-radius: 4px; outline: none; background: #f8fafc; }
-        .row-selected { background: #fefce8 !important; }
-        .panel-footer { background: white; padding: 20px; border-radius: 8px; border: 1px solid #e2e8f0; display: flex; justify-content: space-between; align-items: flex-end; flex-wrap: wrap; gap: 20px; }
+        .box-info { display: inline-block; padding: 4px 8px; border-radius: 6px; font-size: 0.75rem; font-weight: bold; margin-bottom: 4px; border: 1px solid transparent; }
+        .box-reserva { background: #e0f2fe; color: #0369a1; border-color: #bae6fd; }
+        .box-sede { background: #dbeafe; color: #1d4ed8; border-color: #bfdbfe; }
+        .box-comp { background: #ede9fe; color: #6d28d9; border-color: #ddd6fe; }
+        .box-regional { background: #ccfbf1; color: #0f766e; border-color: #99f6e4; } /* Nova cor para o Regional */
+        
+        .check-item { transform: scale(1.5); cursor: pointer; accent-color: #f59e0b; }
+        .input-lote { padding: 10px; border: 1px solid #cbd5e1; border-radius: 6px; outline: none; background: #f8fafc; font-size: 0.95rem; transition: 0.3s; }
+        .input-lote:focus { border-color: #3b82f6; background: #fff; box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1); }
+        .input-lote:disabled { background: #f1f5f9; cursor: not-allowed; opacity: 0.6; }
+        
+        .row-disabled { opacity: 0.7; background: #fafafa; transition: 0.3s; }
+        .row-selected { opacity: 1; background: #fefce8 !important; border-left: 4px solid #f59e0b; box-shadow: inset 0 0 10px rgba(245, 158, 11, 0.05); }
+        
+        .panel-footer { background: white; padding: 25px; border-radius: 8px; border: 1px solid #e2e8f0; display: flex; justify-content: space-between; align-items: flex-end; flex-wrap: wrap; gap: 20px; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1); }
+        
+        .step-badge { display: inline-flex; align-items: center; justify-content: center; background: #334155; color: white; width: 24px; height: 24px; border-radius: 50%; font-size: 0.8rem; margin-right: 8px; }
+        .helper-text { font-size: 0.75rem; display: block; margin-top: 4px; height: 14px; }
     </style>
 </head>
 <body>
     <%- include('../partials/sidebar') %>
     <main class="main-content">
-        <div class="page-header">
+        <div class="page-header" style="margin-bottom: 25px;">
             <div>
-                <h1>Envio Múltiplo para Produção</h1>
-                <p style="color: #64748b; font-size: 1.1rem;">Processo: <strong><%= processo.nome %> (<%= processo.numero %>)</strong></p>
+                <h1>Envio para Produção</h1>
+                <p style="color: #64748b; font-size: 1.1rem; margin-top: 5px;">Processo de Destino: <strong style="color: #0f172a;"><%= processo.nome %> (<%= processo.numero %>)</strong></p>
             </div>
-            <a href="/envios" class="btn" style="background:#e2e8f0; color:#334155;"><i class="fas fa-arrow-left"></i> Voltar</a>
+            <a href="/envios" class="btn" style="background:#e2e8f0; color:#334155; font-weight: bold;"><i class="fas fa-arrow-left"></i> Voltar</a>
         </div>
 
         <form action="/envios/processo/<%= processo.id %>/saida" method="POST" id="formLote">
-            <div class="section-title" style="background: #f59e0b; color: white; padding: 12px 15px; border-radius: 6px 6px 0 0; font-weight: bold;">
-                <i class="fas fa-truck-loading"></i> SELECIONE OS MATERIAIS PARA ESTE ENVIO
+            <div class="section-title" style="background: #f59e0b; color: white; padding: 16px 20px; border-radius: 8px 8px 0 0; font-weight: bold; font-size: 1.1rem; display: flex; align-items: center;">
+                <i class="fas fa-truck-loading" style="font-size: 1.3rem; margin-right: 12px;"></i> SELECIONE OS MATERIAIS PARA ESTE ENVIO
             </div>
             
             <div class="table-responsive">
@@ -42,44 +52,49 @@
                     <thead>
                         <tr>
                             <th style="width: 5%; text-align: center;"><i class="fas fa-check-square"></i></th>
-                            <th style="width: 30%;">Insumo (Unidade)</th>
-                            <th style="text-align: center;">Falta Enviar</th>
+                            <th style="width: 25%;"><span class="step-badge">1</span> Insumo (Unidade)</th>
+                            <th style="text-align: center; width: 15%;">Falta Enviar</th>
                             <th style="width: 15%;">Saldos Disponíveis</th>
-                            <th style="width: 25%;">Origem do Material</th>
-                            <th style="width: 15%;">Quantidade a Enviar</th>
+                            <th style="width: 25%;"><span class="step-badge">2</span> Origem do Material</th>
+                            <th style="width: 15%;"><span class="step-badge">3</span> Qtd a Enviar</th>
                         </tr>
                     </thead>
                     <tbody>
                         <% processo.insumos_envio.forEach(ins => { %>
-                            <tr id="tr_<%= ins.insumo_id %>" style="background-color: <%= ins.quantidade_pendente === 0 ? '#f0fdf4' : 'transparent' %>;">
+                            <tr id="tr_<%= ins.insumo_id %>" class="<%= ins.quantidade_pendente === 0 ? '' : 'row-disabled' %>" style="background-color: <%= ins.quantidade_pendente === 0 ? '#f0fdf4' : 'transparent' %>;">
                                 
                                 <% if (ins.quantidade_pendente > 0 && (!user || (user.role !== 'Monitor' && user.role !== 'Coordenador'))) { %>
                                     <td style="text-align: center;">
                                         <input type="checkbox" name="selecionados" value="<%= ins.insumo_id %>" class="check-item" onclick="toggleRow(this, '<%= ins.insumo_id %>')">
                                     </td>
-                                    <td><strong><%= ins.descricao %></strong> (<%= ins.unidade %>)</td>
-                                    <td style="text-align: center; color: #ef4444; font-weight: bold; font-size: 1.1rem;"><%= ins.quantidade_pendente %></td>
+                                    <td><strong style="color: #1e293b; font-size: 1.05rem;"><%= ins.descricao %></strong> <br><span style="color: #64748b; font-size: 0.85rem;">UN: <%= ins.unidade %></span></td>
+                                    <td style="text-align: center; color: #ef4444; font-weight: bold; font-size: 1.2rem;"><%= ins.quantidade_pendente %></td>
                                     <td>
-                                        <div class="box-info box-reserva">Reservado: <%= ins.quantidade_reservada %></div>
-                                        <div class="box-info box-sede">Alm. Sede: <%= ins.saldo_sede %></div>
-                                        <div class="box-info box-comp">Alm. Comp: <%= ins.saldo_complexo %></div>
+                                        <div class="box-info box-reserva" title="Separado especificamente para este processo">Reservado: <%= ins.quantidade_reservada || 0 %></div>
+                                        <div class="box-info box-sede">Alm. Sede: <%= ins.saldo_sede || 0 %></div>
+                                        <div class="box-info box-comp">Alm. Comp: <%= ins.saldo_complexo || 0 %></div>
+                                        <div class="box-info box-regional">Alm. Reg: <%= ins.saldo_regional || 0 %></div>
                                     </td>
                                     <td>
-                                        <select name="origem_<%= ins.insumo_id %>" class="input-lote" style="width: 100%;" disabled id="origem_<%= ins.insumo_id %>" required>
-                                            <option value="" disabled selected>Escolha...</option>
-                                            <% if (ins.quantidade_reservada > 0) { %><option value="RESERVA">Da Reserva</option><% } %>
-                                            <% if (ins.saldo_sede > 0) { %><option value="GERAL_SEDE">Estoque Sede</option><% } %>
-                                            <% if (ins.saldo_complexo > 0) { %><option value="GERAL_COMPLEXO">Estoque Complexo</option><% } %>
+                                        <select name="origem_<%= ins.insumo_id %>" class="input-lote" style="width: 100%; font-weight: bold;" disabled id="origem_<%= ins.insumo_id %>" onchange="atualizarMaximo('<%= ins.insumo_id %>')" required>
+                                            <option value="" disabled selected>Escolha de onde tirar...</option>
+                                            <% if (ins.quantidade_reservada > 0) { %><option value="RESERVA" data-saldo="<%= ins.quantidade_reservada %>">Da Reserva (<%= ins.quantidade_reservada %> disp.)</option><% } %>
+                                            <% if (ins.saldo_sede > 0) { %><option value="GERAL_SEDE" data-saldo="<%= ins.saldo_sede %>">Estoque Sede (<%= ins.saldo_sede %> disp.)</option><% } %>
+                                            <% if (ins.saldo_complexo > 0) { %><option value="GERAL_COMPLEXO" data-saldo="<%= ins.saldo_complexo %>">Estoque Complexo (<%= ins.saldo_complexo %> disp.)</option><% } %>
+                                            <% if (ins.saldo_regional > 0) { %><option value="GERAL_REGIONAL" data-saldo="<%= ins.saldo_regional %>">Estoque Regional (<%= ins.saldo_regional %> disp.)</option><% } %>
                                         </select>
                                     </td>
                                     <td>
-                                        <input type="number" name="qtd_<%= ins.insumo_id %>" step="0.01" min="0.01" max="<%= ins.quantidade_pendente %>" value="<%= ins.quantidade_pendente %>" class="input-lote" style="width: 100%;" disabled id="qtd_<%= ins.insumo_id %>" required>
+                                        <input type="number" name="qtd_<%= ins.insumo_id %>" step="0.01" min="0.01" data-pendente="<%= ins.quantidade_pendente %>" value="<%= ins.quantidade_pendente %>" class="input-lote" style="width: 100%; font-weight:bold; color:#0f172a;" disabled id="qtd_<%= ins.insumo_id %>" oninput="validarQtdDigitada(this, '<%= ins.insumo_id %>')" required>
+                                        <span id="info_max_<%= ins.insumo_id %>" class="helper-text"></span>
                                     </td>
                                 <% } else { %>
-                                    <td style="text-align: center;"><i class="fas fa-lock" style="color:#cbd5e1;"></i></td>
-                                    <td><strong><%= ins.descricao %></strong> (<%= ins.unidade %>)</td>
-                                    <td style="text-align: center; color: #166534; font-weight: bold;"><i class="fas fa-check-circle"></i> Concluído</td>
-                                    <td colspan="3" style="color: #64748b; font-size: 0.9rem;">Enviado: <%= ins.quantidade_enviada %> | Total Necessário: <%= ins.qtd_arredondada %></td>
+                                    <td style="text-align: center;"><i class="fas fa-lock" style="color:#cbd5e1; font-size: 1.2rem;"></i></td>
+                                    <td><strong style="color: #94a3b8;"><%= ins.descricao %></strong> (<%= ins.unidade %>)</td>
+                                    <td style="text-align: center; color: #166534; font-weight: bold; background: #dcfce7; border-radius: 4px;"><i class="fas fa-check-circle"></i> Concluído</td>
+                                    <td colspan="3" style="color: #64748b; font-size: 0.95rem; font-style: italic;">
+                                        Total já enviado: <strong><%= ins.quantidade_enviada || 0 %></strong> de <%= ins.qtd_arredondada || 0 %>
+                                    </td>
                                 <% } %>
                             </tr>
                         <% }) %>
@@ -89,23 +104,23 @@
 
             <div class="panel-footer">
                 <div style="flex: 1; min-width: 250px;">
-                    <label style="font-weight:bold; display:block; margin-bottom:5px;">Entregue por (Almoxarifado):</label>
-                    <input type="text" value="<%= user ? user.username : 'Sistema' %>" readonly class="input-lote" style="width:100%; background:#e2e8f0;">
+                    <label style="font-weight:bold; display:block; margin-bottom:8px; color: #475569;"><i class="fas fa-user-check"></i> Entregue por (Almoxarifado):</label>
+                    <input type="text" value="<%= user ? user.username : 'Sistema' %>" readonly class="input-lote" style="width:100%; background:#f1f5f9; color: #475569; border: 1px solid #e2e8f0;">
                 </div>
                 <div style="flex: 1; min-width: 250px;">
-                    <label style="font-weight:bold; display:block; margin-bottom:5px; color:#0f172a;">Recebido por (Requisitante) - Obrigatório:</label>
-                    <input type="text" name="recebido_por" required placeholder="Nome completo" class="input-lote" style="width:100%; border: 2px solid #3b82f6;" autocomplete="off">
+                    <label style="font-weight:bold; display:block; margin-bottom:8px; color:#0f172a;"><i class="fas fa-signature"></i> Recebido por (Produção) <span style="color: #ef4444;">*</span></label>
+                    <input type="text" name="recebido_por" required placeholder="Digite o nome de quem está retirando" class="input-lote" style="width:100%; border: 2px solid #3b82f6; box-shadow: 0 4px 6px -1px rgba(59, 130, 246, 0.1);" autocomplete="off">
                 </div>
                 <div>
-                    <button type="submit" class="btn" style="background:#f59e0b; color:white; padding: 12px 25px; font-size: 1.1rem;" onclick="return validarEnvio()">
+                    <button type="submit" class="btn" style="background:#f59e0b; color:white; padding: 14px 28px; font-size: 1.1rem; font-weight: bold; border-radius: 8px; box-shadow: 0 4px 6px rgba(245, 158, 11, 0.3); transition: 0.3s;" onclick="return validarEnvio()" id="btnSubmit">
                         <i class="fas fa-file-pdf"></i> Confirmar e Gerar Recibo
                     </button>
                 </div>
             </div>
         </form>
 
-        <div class="section-title" style="background: #334155; color: white; padding: 12px 15px; border-radius: 6px 6px 0 0; font-weight: bold; margin-top: 40px;">
-            <i class="fas fa-history"></i> HISTÓRICO DE LOTES ENVIADOS
+        <div class="section-title" style="background: #334155; color: white; padding: 16px 20px; border-radius: 8px 8px 0 0; font-weight: bold; margin-top: 50px; font-size: 1.1rem;">
+            <i class="fas fa-history" style="margin-right: 8px;"></i> HISTÓRICO DE LOTES ENVIADOS
         </div>
         <div class="table-responsive">
             <table class="table-custom">
@@ -113,26 +128,26 @@
                 <tbody>
                     <% if (processo.historico_lotes && processo.historico_lotes.length > 0) { %>
                         <% processo.historico_lotes.forEach(lote => { %>
-                            <tr>
-                                <td style="font-weight:bold;"><%= new Date(lote.data).toLocaleString('pt-BR') %></td>
+                            <tr style="background: white;">
+                                <td style="font-weight:bold; color: #475569;"><%= new Date(lote.data).toLocaleString('pt-BR') %></td>
                                 <td>
-                                    <ul style="margin:0; padding-left:15px; font-size:0.9rem;">
+                                    <ul style="margin:0; padding-left:15px; font-size:0.95rem; color: #1e293b;">
                                         <% lote.itens.forEach(item => { %>
-                                            <li><strong><%= item.nome %></strong> - Qtd: <span style="color:#10b981; font-weight:bold;"><%= item.quantidade %></span></li>
+                                            <li style="margin-bottom: 4px;"><strong><%= item.nome %></strong> - Qtd: <span style="color:#10b981; font-weight:bold; background: #d1fae5; padding: 2px 6px; border-radius: 4px;"><%= item.quantidade %></span></li>
                                         <% }) %>
                                     </ul>
                                 </td>
-                                <td><%= lote.entregue_por %></td>
-                                <td><%= lote.recebido_por %></td>
+                                <td style="color: #475569;"><%= lote.entregue_por %></td>
+                                <td style="color: #0f172a; font-weight: bold;"><%= lote.recebido_por %></td>
                                 <td style="text-align: center;">
-                                    <a href="/envios/comprovante/<%= lote.lote_id %>" class="btn" style="background: #475569; color: white; font-size: 0.8rem; padding: 5px 10px;">
+                                    <a href="/envios/comprovante/<%= lote.lote_id %>" class="btn" style="background: #475569; color: white; font-size: 0.85rem; padding: 8px 12px; border-radius: 6px;">
                                         <i class="fas fa-print"></i> Tirar PDF
                                     </a>
                                 </td>
                             </tr>
                         <% }) %>
                     <% } else { %>
-                        <tr><td colspan="5" style="text-align:center; color:#64748b; padding: 30px;">Nenhum envio registrado para este processo.</td></tr>
+                        <tr><td colspan="5" style="text-align:center; color:#64748b; padding: 40px; font-size: 1.1rem; background: #f8fafc;">Nenhum envio registrado para este processo até o momento.</td></tr>
                     <% } %>
                 </tbody>
             </table>
@@ -144,26 +159,85 @@
             const row = document.getElementById('tr_' + insumoId);
             const origem = document.getElementById('origem_' + insumoId);
             const qtd = document.getElementById('qtd_' + insumoId);
+            const infoMax = document.getElementById('info_max_' + insumoId);
             
             if (checkbox.checked) {
+                row.classList.remove('row-disabled');
                 row.classList.add('row-selected');
                 origem.disabled = false;
                 qtd.disabled = false;
-                origem.style.border = "2px solid #3b82f6";
+                origem.style.border = "2px solid #f59e0b";
+                
+                atualizarMaximo(insumoId);
             } else {
+                row.classList.add('row-disabled');
                 row.classList.remove('row-selected');
                 origem.disabled = true;
                 qtd.disabled = true;
                 origem.style.border = "1px solid #cbd5e1";
+                infoMax.innerHTML = "";
+            }
+        }
+
+        function atualizarMaximo(insumoId) {
+            const origemSelect = document.getElementById('origem_' + insumoId);
+            const qtdInput = document.getElementById('qtd_' + insumoId);
+            const infoMax = document.getElementById('info_max_' + insumoId);
+            
+            const pendente = parseFloat(qtdInput.getAttribute('data-pendente'));
+
+            if(origemSelect.value) {
+                const selectedOption = origemSelect.options[origemSelect.selectedIndex];
+                const saldoNaOrigem = parseFloat(selectedOption.getAttribute('data-saldo'));
+                
+                const limiteReal = Math.min(pendente, saldoNaOrigem);
+                
+                qtdInput.max = limiteReal;
+                
+                if(parseFloat(qtdInput.value) > limiteReal) {
+                    qtdInput.value = limiteReal;
+                }
+                
+                infoMax.innerHTML = `Limite de Envio: <strong style="color:#059669;">${limiteReal}</strong>`;
+                origemSelect.style.border = "1px solid #cbd5e1";
+            } else {
+                infoMax.innerHTML = "";
+            }
+        }
+
+        function validarQtdDigitada(input, insumoId) {
+            const maxPermitido = parseFloat(input.max);
+            const valorDigitado = parseFloat(input.value);
+            
+            if(valorDigitado > maxPermitido) {
+                alert(`Atenção: Você não pode enviar ${valorDigitado}! O limite disponível nesta origem (ou o que falta enviar) é apenas ${maxPermitido}.`);
+                input.value = maxPermitido;
             }
         }
 
         function validarEnvio() {
             const checkboxes = document.querySelectorAll('.check-item:checked');
             if (checkboxes.length === 0) {
-                alert("Você precisa marcar a caixinha de pelo menos UM insumo na tabela para realizar o envio.");
+                alert("Passo 1 Incompleto: Você precisa marcar a caixinha de pelo menos UM insumo na tabela para realizar o envio.");
                 return false;
             }
+            
+            let origensValidas = true;
+            checkboxes.forEach(chk => {
+                const id = chk.value;
+                const origem = document.getElementById('origem_' + id);
+                if(!origem.value) {
+                    origensValidas = false;
+                    origem.style.border = "2px solid #ef4444";
+                }
+            });
+
+            if(!origensValidas) {
+                alert("Passo 2 Incompleto: Você marcou insumos, mas esqueceu de escolher a 'Origem do Material' (De onde o estoque vai sair).");
+                return false;
+            }
+
+            document.getElementById('btnSubmit').innerHTML = '<i class="fas fa-spinner fa-spin"></i> Registrando...';
             return true;
         }
     </script>

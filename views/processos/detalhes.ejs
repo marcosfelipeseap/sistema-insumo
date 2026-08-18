@@ -15,8 +15,15 @@
         .progress-bar-bg { background-color: #e2e8f0; border-radius: 999px; height: 10px; width: 100%; overflow: hidden; margin-top: 5px; }
         .progress-bar-fill { height: 100%; background-color: #10b981; }
         .product-list { list-style: none; padding: 0; margin: 0; }
-        .product-item { padding: 12px 15px; border-bottom: 1px solid #e2e8f0; display: flex; justify-content: space-between; align-items: center; }
+        .product-item { padding: 12px 15px; border-bottom: 1px solid #e2e8f0; display: flex; justify-content: space-between; align-items: center; transition: background 0.2s; }
+        .product-item:hover { background: #f8fafc; }
         .product-item:last-child { border-bottom: none; }
+        
+        .accordion-header-prod { display: flex; justify-content: space-between; align-items: center; cursor: pointer; user-select: none; transition: 0.2s; }
+        .accordion-header-prod:hover h3 { color: #7c3aed; }
+        .accordion-body-prod { display: block; margin-top: 15px; }
+        .search-prod-input { width: 100%; padding: 10px 15px; border: 1px solid #cbd5e1; border-radius: 6px; margin-bottom: 15px; outline: none; font-size: 0.95rem; background: #f8fafc; transition: 0.3s; }
+        .search-prod-input:focus { border-color: #8b5cf6; background: #fff; box-shadow: 0 0 0 3px rgba(139, 92, 246, 0.15); }
     </style>
 </head>
 <body>
@@ -30,7 +37,6 @@
                 <p style="color: #64748b; font-size: 1.1rem; margin-top: 5px;">Processo Nº: <%= processo.numero %> | Status: <strong><%= processo.status %></strong></p>
             </div>
             <div style="display: flex; gap: 10px;">
-                <!-- NOVO BOTÃO DE COMPOSIÇÃO DE INSUMO -->
                 <a href="/processos/<%= processo.id %>/composicao" class="btn btn-primary" style="background: #3b82f6;">
                     <i class="fas fa-list-alt"></i> Composição de Insumo
                 </a>
@@ -43,30 +49,62 @@
             let totalInsumos = listaInsumos.length;
             let totalConcluidos = listaInsumos.filter(i => i.status_concluido).length;
             let percentualGeral = totalInsumos > 0 ? Math.round((totalConcluidos / totalInsumos) * 100) : 0;
+            
+            // MAPEAMENTO LÓGICO: Qual insumo pertence a qual produto?
+            let mapInsumoProd = {};
+            (processo.produtos || []).forEach(prod => {
+                (prod.itens || []).forEach(item => {
+                    let idIns = item.insumo ? item.insumo.id : item.insumo_id;
+                    if(idIns) {
+                        if(!mapInsumoProd[idIns]) mapInsumoProd[idIns] = [];
+                        mapInsumoProd[idIns].push(String(prod.produto_id));
+                    }
+                });
+            });
         %>
 
         <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-bottom: 30px;">
             
-            <!-- LISTA DE PRODUTOS DO PROCESSO -->
+            <!-- LISTA DE PRODUTOS DO PROCESSO COM SANFONA E FILTRO -->
             <div class="card" style="border-top-color: #8b5cf6;">
-                <h3>Produtos a Fabricar</h3>
-                <ul class="product-list">
-                    <% (processo.produtos || []).forEach(prod => { %>
-                        <li class="product-item">
-                            <span><i class="fas fa-box" style="color: #8b5cf6; margin-right: 8px;"></i> <strong><%= prod.produto_nome %></strong></span>
-                            <span class="badge" style="background: #f1f5f9; color: #0f172a; font-size: 1rem;">Qtd: <%= prod.qtd_solicitada %></span>
-                        </li>
-                    <% }) %>
-                    <% if((processo.produtos || []).length === 0) { %>
-                        <li class="product-item" style="color: #64748b; justify-content: center;">Nenhum produto cadastrado</li>
+                
+                <!-- Cabeçalho clicável (Sanfona) -->
+                <div class="accordion-header-prod" onclick="toggleProdutos()" title="Clique para expandir ou recolher os produtos">
+                    <h3 style="margin: 0; transition: color 0.2s;">Produtos a Fabricar (<%= (processo.produtos || []).length %>)</h3>
+                    <i class="fas fa-chevron-up" id="iconProdutos" style="color: #8b5cf6; font-size: 1.2rem; transition: transform 0.3s;"></i>
+                </div>
+                
+                <!-- Corpo expansível -->
+                <div id="bodyProdutos" class="accordion-body-prod">
+                    
+                    <% if((processo.produtos || []).length > 0) { %>
+                        <input type="text" id="filtroProdutos" class="search-prod-input" placeholder="🔍 Buscar produto pelo nome..." onkeyup="filtrarProdutosNaLista()">
+                        <p style="font-size: 0.8rem; color: #64748b; margin-bottom: 10px; margin-top: -5px;">
+                            <i class="fas fa-info-circle"></i> Selecione os produtos abaixo para filtrar a tabela de insumos.
+                        </p>
                     <% } %>
-                </ul>
+
+                    <ul class="product-list" id="listaProdutos" style="max-height: 250px; overflow-y: auto; border: 1px solid #e2e8f0; border-radius: 6px;">
+                        <% (processo.produtos || []).forEach(prod => { %>
+                            <li class="product-item" data-nome="<%= prod.produto_nome.toLowerCase() %>">
+                                <label style="display: flex; align-items: center; cursor: pointer; width: 100%; margin: 0; gap: 10px;">
+                                    <input type="checkbox" class="filter-prod-check" value="<%= prod.produto_id %>" onchange="filtrarInsumosNaTabela()" style="transform: scale(1.3); accent-color: #8b5cf6;">
+                                    <span><i class="fas fa-box" style="color: #8b5cf6;"></i> <strong><%= prod.produto_nome %></strong></span>
+                                </label>
+                                <span class="badge" style="background: #f1f5f9; color: #0f172a; font-size: 0.9rem; padding: 4px 8px; border-radius: 6px; white-space: nowrap;">Qtd: <%= prod.qtd_solicitada %></span>
+                            </li>
+                        <% }) %>
+                        <% if((processo.produtos || []).length === 0) { %>
+                            <li class="product-item" style="color: #64748b; justify-content: center;">Nenhum produto cadastrado</li>
+                        <% } %>
+                    </ul>
+                </div>
             </div>
 
             <!-- CARD DE PROGRESSO -->
             <div class="card" style="border-top-color: #3b82f6;">
-                <h3>Progresso de Envio p/ Produção</h3>
-                <p style="margin-top: 10px;"><strong><%= totalConcluidos %> de <%= totalInsumos %></strong> itens já foram 100% enviados para a equipe produzir.</p>
+                <h3>Progresso Geral do Processo</h3>
+                <p style="margin-top: 10px;"><strong><%= totalConcluidos %> de <%= totalInsumos %></strong> itens totais já foram 100% entregues para a equipe produzir.</p>
                 <div class="progress-wrapper" style="margin-top: 25px;">
                     <div style="display: flex; justify-content: space-between; font-weight: bold; color: #334155;">
                         <span>Conclusão Geral</span>
@@ -78,17 +116,17 @@
 
         </div>
 
-        <div class="section-title" style="background: #2563eb;"><i class="fas fa-clipboard-list"></i> RESUMO CONSOLIDADO DE INSUMOS</div>
+        <div class="section-title" style="background: #2563eb; border-radius: 6px 6px 0 0;"><i class="fas fa-clipboard-list"></i> RESUMO CONSOLIDADO DE INSUMOS</div>
         <div class="table-responsive">
             <table class="table-custom">
                 <thead>
                     <tr>
                         <th style="width: 25%;">Insumo (Un)</th>
                         <th style="text-align: center; background: #f8fafc;">Total Necessário</th>
-                        <th style="text-align: center; color: #64748b;">No Almoxarifado</th>
+                        <th style="text-align: center; color: #64748b;">Em Estoque</th>
                         <th style="text-align: center; color: #0284c7;">Separado (Reserva)</th>
-                        <th style="text-align: center; color: #10b981; background: #f0fdf4;">Enviado p/ Produção</th>
-                        <th style="text-align: center; color: #ef4444;">Falta Enviar</th>
+                        <th style="text-align: center; color: #10b981; background: #f0fdf4;">Entregue</th>
+                        <th style="text-align: center; color: #ef4444;">Pendente</th>
                         <th style="width: 15%;">Progresso</th>
                     </tr>
                 </thead>
@@ -97,7 +135,8 @@
                         let percentualItem = ins.qtd_arredondada > 0 ? Math.round((ins.qtd_enviada / ins.qtd_arredondada) * 100) : 0;
                         if(percentualItem > 100) percentualItem = 100;
                     %>
-                        <tr style="background-color: <%= ins.status_concluido ? '#f0fdf4' : 'transparent' %>;">
+                        <!-- Data-produtos guarda o array de produtos que usam esse insumo para o JavaScript ler e filtrar -->
+                        <tr class="insumo-row" data-produtos='<%= JSON.stringify(mapInsumoProd[ins.insumo_id] || []) %>' style="background-color: <%= ins.status_concluido ? '#f0fdf4' : 'transparent' %>;">
                             <td><strong><%= ins.descricao %></strong> (<%= ins.unidade %>)</td>
                             <td style="text-align: center; font-size:1.1rem; background: #f8fafc;"><strong><%= ins.qtd_arredondada %></strong></td>
                             <td style="text-align: center; color: #64748b; font-weight: bold;"><%= ins.qtd_almoxarifado %></td>
@@ -117,9 +156,85 @@
                     <% if (listaInsumos.length === 0) { %>
                         <tr><td colspan="7" style="text-align: center; color: #64748b; padding: 30px;">Nenhum insumo consolidado para este processo.</td></tr>
                     <% } %>
+                    <tr id="linhaVaziaFiltro" style="display: none;">
+                        <td colspan="7" style="text-align: center; color: #64748b; padding: 30px;">Nenhum insumo encontrado para os produtos selecionados.</td>
+                    </tr>
                 </tbody>
             </table>
         </div>
     </main>
+
+    <!-- Scripts de Interatividade -->
+    <script>
+        // Função para Abrir/Fechar a Sanfona de Produtos
+        function toggleProdutos() {
+            const body = document.getElementById('bodyProdutos');
+            const icon = document.getElementById('iconProdutos');
+            
+            if (body.style.display === 'none') {
+                body.style.display = 'block';
+                icon.classList.remove('fa-chevron-down');
+                icon.classList.add('fa-chevron-up');
+            } else {
+                body.style.display = 'none';
+                icon.classList.remove('fa-chevron-up');
+                icon.classList.add('fa-chevron-down');
+            }
+        }
+
+        // Função para pesquisar pelo nome na lista de produtos (caixa de texto)
+        function filtrarProdutosNaLista() {
+            const termo = document.getElementById('filtroProdutos').value.toLowerCase().trim();
+            const itens = document.querySelectorAll('#listaProdutos .product-item');
+            
+            itens.forEach(item => {
+                if (!item.hasAttribute('data-nome')) return;
+                const nomeProduto = item.getAttribute('data-nome');
+                
+                if (nomeProduto.includes(termo)) {
+                    item.style.display = 'flex';
+                } else {
+                    item.style.display = 'none';
+                }
+            });
+        }
+
+        // Função principal: Ao marcar as Checkboxes, filtra a tabela grande de insumos embaixo
+        function filtrarInsumosNaTabela() {
+            const checkboxes = document.querySelectorAll('.filter-prod-check:checked');
+            const produtosSelecionadosIds = Array.from(checkboxes).map(cb => cb.value);
+            
+            const linhasTabela = document.querySelectorAll('.insumo-row');
+            let algumaLinhaVisivel = false;
+
+            linhasTabela.forEach(linha => {
+                // Se não marcou nenhum produto, mostra todos os insumos
+                if (produtosSelecionadosIds.length === 0) {
+                    linha.style.display = '';
+                    algumaLinhaVisivel = true;
+                    return;
+                }
+                
+                // Lê quais produtos precisam deste insumo
+                const produtosDesseInsumo = JSON.parse(linha.getAttribute('data-produtos') || '[]');
+                
+                // Verifica se há intersecção (se esse insumo atende algum dos produtos selecionados)
+                const isRelacionado = produtosSelecionadosIds.some(idSelecionado => produtosDesseInsumo.includes(idSelecionado));
+                
+                if (isRelacionado) {
+                    linha.style.display = '';
+                    algumaLinhaVisivel = true;
+                } else {
+                    linha.style.display = 'none';
+                }
+            });
+
+            // Mostra aviso de tabela vazia caso o filtro elimine todos os resultados
+            const avisoVazio = document.getElementById('linhaVaziaFiltro');
+            if (avisoVazio) {
+                avisoVazio.style.display = algumaLinhaVisivel ? 'none' : 'table-row';
+            }
+        }
+    </script>
 </body>
 </html>

@@ -43,13 +43,13 @@ exports.detalhes = async (req, res) => {
         const processo = await ProcessoService.obterDetalhesComposicao(req.params.id);
         if (!processo) return res.status(404).send('Processo não encontrado');
 
-        // 1. Busca Saldo Total no Almoxarifado (Sede + Complexo)
+        // 1. Busca Saldo Total no Almoxarifado (AGORA SOMANDO SEDE + COMPLEXO + REGIONAL)
         const { data: estoqueGeral } = await supabase.schema('insumo').from('estoque_geral').select('*');
         const mapaEstoque = {};
         if (estoqueGeral) {
             estoqueGeral.forEach(e => {
                 if (!mapaEstoque[e.insumo_id]) mapaEstoque[e.insumo_id] = 0;
-                mapaEstoque[e.insumo_id] += (Number(e.qtd_sede) + Number(e.qtd_complexo));
+                mapaEstoque[e.insumo_id] += (Number(e.qtd_sede || 0) + Number(e.qtd_complexo || 0) + Number(e.qtd_regional || 0));
             });
         }
 

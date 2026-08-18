@@ -11,7 +11,7 @@
         .card-body { padding: 24px; }
         
         .table-responsive { width: 100%; overflow-x: auto; max-height: 550px; overflow-y: auto; border: 1px solid #e2e8f0; border-radius: 8px; }
-        .table-custom { width: 100%; border-collapse: collapse; min-width: 800px; }
+        .table-custom { width: 100%; border-collapse: collapse; min-width: 900px; }
         .table-custom th, .table-custom td { padding: 12px 16px; border-bottom: 1px solid #e2e8f0; text-align: left; vertical-align: middle; }
         .table-custom th { background-color: #f8fafc; color: #475569; font-weight: 700; text-transform: uppercase; font-size: 0.8rem; position: sticky; top: 0; z-index: 10; }
         .table-custom td { color: #1e293b; font-size: 0.95rem; }
@@ -19,7 +19,6 @@
         .input-qtd { width: 110px; padding: 8px 10px; border: 1px solid #cbd5e1; border-radius: 6px; font-weight: 600; text-align: center; }
         .input-qtd:focus { outline: none; border-color: #3b82f6; }
 
-        /* Estilos do Painel de Filtros */
         .filter-panel { background: #f8fafc; border-radius: 8px; margin-bottom: 20px; border: 1px solid #cbd5e1; }
         .accordion-header { cursor: pointer; padding: 15px 20px; display: flex; justify-content: space-between; align-items: center; font-weight: bold; color: #0f172a; transition: background 0.2s; border-radius: 8px; }
         .accordion-header:hover { background: #f1f5f9; }
@@ -28,7 +27,6 @@
         .search-main { width: 100%; padding: 12px 16px; border: 1px solid #cbd5e1; border-radius: 8px; font-size: 1rem; margin-bottom: 15px; }
         .search-main:focus { outline: none; border-color: #3b82f6; box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.15); }
 
-        /* Estilos do Dropdown Multi-Select */
         .dropdown-check-list { display: inline-block; width: 100%; position: relative; }
         .dropdown-check-list .anchor { width: 100%; padding: 12px 16px; background: white; border: 1px solid #cbd5e1; border-radius: 6px; cursor: pointer; display: flex; justify-content: space-between; align-items: center; color: #334155; font-weight: 500; transition: border-color 0.2s; }
         .dropdown-check-list .anchor:hover { border-color: #94a3b8; }
@@ -49,15 +47,13 @@
         <div class="page-header" style="margin-bottom: 20px;">
             <div>
                 <h1>Registrar Nova Entrada</h1>
-                <p style="color:#64748b; font-size: 1.05rem; margin-top: 5px;">Pesquise os insumos e informe as quantidades recebidas na Sede ou Complexo.</p>
+                <p style="color:#64748b; font-size: 1.05rem; margin-top: 5px;">Pesquise os insumos e informe as quantidades recebidas na Sede, Complexo ou Regional.</p>
             </div>
             <a href="/estoque" class="btn" style="background:#e2e8f0; color:#334155;"><i class="fas fa-arrow-left"></i> Voltar ao Almoxarifado</a>
         </div>
 
-        <!-- PESQUISA GERAL -->
         <input type="text" id="globalSearch" class="search-main" placeholder="🔍 Pesquisa geral por nome do insumo ou referência (Ref)...">
 
-        <!-- PAINEL DE FILTROS AVANÇADOS (ACORDEÃO) -->
         <div class="filter-panel">
             <div class="accordion-header" onclick="toggleFiltersPanel()">
                 <span><i class="fas fa-filter"></i> Filtros Avançados (Por Processo)</span>
@@ -71,7 +67,6 @@
                 
                 <p style="font-weight: bold; margin-bottom: 8px; color: #0f172a;">Filtrar por Processo Específico:</p>
                 
-                <!-- CAIXA DE SELEÇÃO CUSTOMIZADA -->
                 <div id="dropdownProcessos" class="dropdown-check-list">
                     <div class="anchor" onclick="toggleDropdown()">
                         <span id="dropdownTitle">Selecione os processos...</span>
@@ -107,11 +102,12 @@
                         <table class="table-custom" id="tabelaInsumos">
                             <thead>
                                 <tr>
-                                    <th style="width: 45%;">Insumo / Descrição</th>
+                                    <th style="width: 35%;">Insumo / Descrição</th>
                                     <th>Referência</th>
                                     <th>Unidade</th>
                                     <th style="text-align: center; color: #2563eb;">Qtd para Sede</th>
                                     <th style="text-align: center; color: #8b5cf6;">Qtd para Complexo</th>
+                                    <th style="text-align: center; color: #0f766e;">Qtd para Regional</th>
                                 </tr>
                             </thead>
                             <tbody>
@@ -131,6 +127,9 @@
                                         <td style="text-align: center;">
                                             <input type="number" name="qtd_complexo[]" step="0.01" min="0" placeholder="0" class="input-qtd" style="border-color: #ddd6fe;">
                                         </td>
+                                        <td style="text-align: center;">
+                                            <input type="number" name="qtd_regional[]" step="0.01" min="0" placeholder="0" class="input-qtd" style="border-color: #99f6e4;">
+                                        </td>
                                     </tr>
                                 <% }) %>
                             </tbody>
@@ -148,7 +147,6 @@
     <script>
         const insumoMap = <%- insumoProcessoMap %>; 
 
-        // 1. Abre/Fecha o painel de filtros inteiro
         function toggleFiltersPanel() {
             const panel = document.getElementById('filterOptions');
             const icon = document.getElementById('accordionIcon');
@@ -163,7 +161,6 @@
             }
         }
 
-        // 2. Abre/Fecha a caixa de seleção de processos
         function toggleDropdown() {
             const checkList = document.getElementById('dropdownProcessos');
             checkList.classList.toggle('visible');
@@ -176,7 +173,6 @@
             }
         });
 
-        // 3. Atualiza o título da caixa de seleção
         function updateDropdownTitle() {
             const checked = document.querySelectorAll('.proc-check:checked');
             const title = document.getElementById('dropdownTitle');
@@ -189,7 +185,6 @@
             }
         }
 
-        // 4. Lógica de Filtragem
         function applyFilters() {
             const query = document.getElementById('globalSearch').value.toLowerCase().trim();
             const activeOnly = document.getElementById('checkActiveOnly').checked;
@@ -211,7 +206,6 @@
             });
         }
 
-        // 5. Event Listeners
         document.getElementById('globalSearch').addEventListener('input', applyFilters);
         document.getElementById('checkActiveOnly').addEventListener('change', applyFilters);
         
@@ -222,7 +216,6 @@
             });
         });
         
-        // 6. Pesquisa dentro da caixa de seleção
         document.getElementById('procSearch').addEventListener('input', function() {
             const val = this.value.toLowerCase();
             document.querySelectorAll('.proc-item').forEach(item => {
