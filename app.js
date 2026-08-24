@@ -14,7 +14,7 @@ app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 app.use(express.static(path.join(__dirname, 'public')));
 
-// Configuração da Sessão (Persistente por 7 dias para evitar quedas frequentes)
+// Configuração da Sessão (Persistente por 7 dias)
 app.use(session({
     secret: process.env.SESSION_SECRET || 'chave-secreta-ugtr-2026',
     resave: false,
@@ -41,17 +41,19 @@ const perfilRoutes = require('./routes/perfil');
 const processoRoutes = require('./routes/processos');
 const estoqueRoutes = require('./routes/estoque');
 const envioRoutes = require('./routes/envios');
+const balancoRoutes = require('./routes/balanco'); // Importação do Balanço Financeiro
 
 // Importação dos Middlewares de Segurança
 const { requireLogin } = require('./middlewares/auth');
 
 // Integração das Rotas na Aplicação
-app.use('/', authRoutes); // Rotas de login e cadastro são públicas
+app.use('/', authRoutes);
 app.use('/admin', requireLogin, adminRoutes);
 app.use('/perfil', requireLogin, perfilRoutes);
 app.use('/processos', requireLogin, processoRoutes);
 app.use('/estoque', requireLogin, estoqueRoutes);
 app.use('/envios', requireLogin, envioRoutes);
+app.use('/balanco', requireLogin, balancoRoutes); // Integração da rota do Balanço
 
 // Rota raiz redirecionando automaticamente para a página de processos
 app.get('/', (req, res) => {
