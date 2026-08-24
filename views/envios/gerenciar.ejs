@@ -6,16 +6,39 @@
     <link rel="stylesheet" href="/css/style.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <style>
-        .table-responsive { width: 100%; overflow-x: auto; background: white; border-radius: 8px; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1); margin-bottom: 20px; border: 1px solid #e2e8f0; }
+        /* TABELA COM ROLAGEM INTERNA INDEPENDENTE */
+        .table-responsive { 
+            width: 100%; 
+            max-height: 55vh; /* Limita a altura para que a página não role, só a tabela */
+            overflow-y: auto; 
+            background: white; 
+            border-radius: 8px; 
+            box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1); 
+            margin-bottom: 20px; 
+            border: 1px solid #e2e8f0; 
+        }
+        
         .table-custom { width: 100%; border-collapse: collapse; }
         .table-custom th, .table-custom td { padding: 16px 12px; border-bottom: 1px solid #e2e8f0; text-align: left; vertical-align: middle; }
-        .table-custom th { background-color: #f8fafc; color: #475569; font-weight: bold; font-size: 0.85rem; text-transform: uppercase; border-bottom: 2px solid #cbd5e1; }
+        
+        /* CABEÇALHO DA TABELA FIXO NO TOPO */
+        .table-custom th { 
+            background-color: #f8fafc; 
+            color: #475569; 
+            font-weight: bold; 
+            font-size: 0.85rem; 
+            text-transform: uppercase; 
+            position: sticky; 
+            top: 0; 
+            z-index: 10; 
+            box-shadow: 0 2px 0 0 #cbd5e1; /* Substitui a borda para não sumir ao rolar */
+        }
         
         .box-info { display: inline-block; padding: 4px 8px; border-radius: 6px; font-size: 0.75rem; font-weight: bold; margin-bottom: 4px; border: 1px solid transparent; }
         .box-reserva { background: #e0f2fe; color: #0369a1; border-color: #bae6fd; }
         .box-sede { background: #dbeafe; color: #1d4ed8; border-color: #bfdbfe; }
         .box-comp { background: #ede9fe; color: #6d28d9; border-color: #ddd6fe; }
-        .box-regional { background: #ccfbf1; color: #0f766e; border-color: #99f6e4; } /* Nova cor para o Regional */
+        .box-regional { background: #ccfbf1; color: #0f766e; border-color: #99f6e4; }
         
         .check-item { transform: scale(1.5); cursor: pointer; accent-color: #f59e0b; }
         .input-lote { padding: 10px; border: 1px solid #cbd5e1; border-radius: 6px; outline: none; background: #f8fafc; font-size: 0.95rem; transition: 0.3s; }
@@ -29,6 +52,9 @@
         
         .step-badge { display: inline-flex; align-items: center; justify-content: center; background: #334155; color: white; width: 24px; height: 24px; border-radius: 50%; font-size: 0.8rem; margin-right: 8px; }
         .helper-text { font-size: 0.75rem; display: block; margin-top: 4px; height: 14px; }
+        
+        .section-title-accordion { cursor: pointer; transition: background 0.3s; }
+        .section-title-accordion:hover { background: #d97706 !important; }
     </style>
 </head>
 <body>
@@ -43,63 +69,78 @@
         </div>
 
         <form action="/envios/processo/<%= processo.id %>/saida" method="POST" id="formLote">
-            <div class="section-title" style="background: #f59e0b; color: white; padding: 16px 20px; border-radius: 8px 8px 0 0; font-weight: bold; font-size: 1.1rem; display: flex; align-items: center;">
-                <i class="fas fa-truck-loading" style="font-size: 1.3rem; margin-right: 12px;"></i> SELECIONE OS MATERIAIS PARA ESTE ENVIO
+            <!-- Cabeçalho Acordeão -->
+            <div class="section-title section-title-accordion" onclick="toggleSanfona()" style="background: #f59e0b; color: white; padding: 16px 20px; border-radius: 8px 8px 0 0; font-weight: bold; font-size: 1.1rem; display: flex; align-items: center; justify-content: space-between;">
+                <div style="display: flex; align-items: center;">
+                    <i class="fas fa-truck-loading" style="font-size: 1.3rem; margin-right: 12px;"></i> SELECIONE OS MATERIAIS PARA ESTE ENVIO
+                </div>
+                <i id="iconeSanfona" class="fas fa-chevron-up" style="font-size: 1.2rem;"></i>
             </div>
             
-            <div class="table-responsive">
-                <table class="table-custom">
-                    <thead>
-                        <tr>
-                            <th style="width: 5%; text-align: center;"><i class="fas fa-check-square"></i></th>
-                            <th style="width: 25%;"><span class="step-badge">1</span> Insumo (Unidade)</th>
-                            <th style="text-align: center; width: 15%;">Falta Enviar</th>
-                            <th style="width: 15%;">Saldos Disponíveis</th>
-                            <th style="width: 25%;"><span class="step-badge">2</span> Origem do Material</th>
-                            <th style="width: 15%;"><span class="step-badge">3</span> Qtd a Enviar</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        <% processo.insumos_envio.forEach(ins => { %>
-                            <tr id="tr_<%= ins.insumo_id %>" class="<%= ins.quantidade_pendente === 0 ? '' : 'row-disabled' %>" style="background-color: <%= ins.quantidade_pendente === 0 ? '#f0fdf4' : 'transparent' %>;">
-                                
-                                <% if (ins.quantidade_pendente > 0 && (!user || (user.role !== 'Monitor' && user.role !== 'Coordenador'))) { %>
-                                    <td style="text-align: center;">
-                                        <input type="checkbox" name="selecionados" value="<%= ins.insumo_id %>" class="check-item" onclick="toggleRow(this, '<%= ins.insumo_id %>')">
-                                    </td>
-                                    <td><strong style="color: #1e293b; font-size: 1.05rem;"><%= ins.descricao %></strong> <br><span style="color: #64748b; font-size: 0.85rem;">UN: <%= ins.unidade %></span></td>
-                                    <td style="text-align: center; color: #ef4444; font-weight: bold; font-size: 1.2rem;"><%= ins.quantidade_pendente %></td>
-                                    <td>
-                                        <div class="box-info box-reserva" title="Separado especificamente para este processo">Reservado: <%= ins.quantidade_reservada || 0 %></div>
-                                        <div class="box-info box-sede">Alm. Sede: <%= ins.saldo_sede || 0 %></div>
-                                        <div class="box-info box-comp">Alm. Comp: <%= ins.saldo_complexo || 0 %></div>
-                                        <div class="box-info box-regional">Alm. Reg: <%= ins.saldo_regional || 0 %></div>
-                                    </td>
-                                    <td>
-                                        <select name="origem_<%= ins.insumo_id %>" class="input-lote" style="width: 100%; font-weight: bold;" disabled id="origem_<%= ins.insumo_id %>" onchange="atualizarMaximo('<%= ins.insumo_id %>')" required>
-                                            <option value="" disabled selected>Escolha de onde tirar...</option>
-                                            <% if (ins.quantidade_reservada > 0) { %><option value="RESERVA" data-saldo="<%= ins.quantidade_reservada %>">Da Reserva (<%= ins.quantidade_reservada %> disp.)</option><% } %>
-                                            <% if (ins.saldo_sede > 0) { %><option value="GERAL_SEDE" data-saldo="<%= ins.saldo_sede %>">Estoque Sede (<%= ins.saldo_sede %> disp.)</option><% } %>
-                                            <% if (ins.saldo_complexo > 0) { %><option value="GERAL_COMPLEXO" data-saldo="<%= ins.saldo_complexo %>">Estoque Complexo (<%= ins.saldo_complexo %> disp.)</option><% } %>
-                                            <% if (ins.saldo_regional > 0) { %><option value="GERAL_REGIONAL" data-saldo="<%= ins.saldo_regional %>">Estoque Regional (<%= ins.saldo_regional %> disp.)</option><% } %>
-                                        </select>
-                                    </td>
-                                    <td>
-                                        <input type="number" name="qtd_<%= ins.insumo_id %>" step="0.01" min="0.01" data-pendente="<%= ins.quantidade_pendente %>" value="<%= ins.quantidade_pendente %>" class="input-lote" style="width: 100%; font-weight:bold; color:#0f172a;" disabled id="qtd_<%= ins.insumo_id %>" oninput="validarQtdDigitada(this, '<%= ins.insumo_id %>')" required>
-                                        <span id="info_max_<%= ins.insumo_id %>" class="helper-text"></span>
-                                    </td>
-                                <% } else { %>
-                                    <td style="text-align: center;"><i class="fas fa-lock" style="color:#cbd5e1; font-size: 1.2rem;"></i></td>
-                                    <td><strong style="color: #94a3b8;"><%= ins.descricao %></strong> (<%= ins.unidade %>)</td>
-                                    <td style="text-align: center; color: #166534; font-weight: bold; background: #dcfce7; border-radius: 4px;"><i class="fas fa-check-circle"></i> Concluído</td>
-                                    <td colspan="3" style="color: #64748b; font-size: 0.95rem; font-style: italic;">
-                                        Total já enviado: <strong><%= ins.quantidade_enviada || 0 %></strong> de <%= ins.qtd_arredondada || 0 %>
-                                    </td>
-                                <% } %>
+            <!-- Container Sanfona (Engloba Pesquisa e Tabela) -->
+            <div id="containerInsumos" style="border: 1px solid #e2e8f0; border-top: none; padding: 15px; background: white; border-radius: 0 0 8px 8px; margin-bottom: 20px; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1);">
+                
+                <!-- Barra de Pesquisa Fixada acima da tabela -->
+                <div style="margin-bottom: 15px; position: relative;">
+                    <i class="fas fa-search" style="position: absolute; left: 12px; top: 12px; color: #94a3b8;"></i>
+                    <input type="text" id="inputPesquisa" onkeyup="pesquisarInsumo()" placeholder="Pesquisar insumo por nome..." class="input-lote" style="width: 100%; padding-left: 35px;">
+                </div>
+
+                <!-- Tabela com scroll independente -->
+                <div class="table-responsive" style="margin-bottom: 0; box-shadow: none; border: 1px solid #e2e8f0;">
+                    <table class="table-custom" id="tabelaInsumos">
+                        <thead>
+                            <tr>
+                                <th style="width: 5%; text-align: center;"><i class="fas fa-check-square"></i></th>
+                                <th style="width: 25%;"><span class="step-badge">1</span> Insumo (Unidade)</th>
+                                <th style="text-align: center; width: 15%;">Falta Enviar</th>
+                                <th style="width: 15%;">Saldos Disponíveis</th>
+                                <th style="width: 25%;"><span class="step-badge">2</span> Origem do Material</th>
+                                <th style="width: 15%;"><span class="step-badge">3</span> Qtd a Enviar</th>
                             </tr>
-                        <% }) %>
-                    </tbody>
-                </table>
+                        </thead>
+                        <tbody>
+                            <% processo.insumos_envio.forEach(ins => { %>
+                                <tr id="tr_<%= ins.insumo_id %>" data-nome="<%= ins.descricao.toLowerCase() %>" class="<%= ins.quantidade_pendente === 0 ? '' : 'row-disabled' %>" style="background-color: <%= ins.quantidade_pendente === 0 ? '#f0fdf4' : 'transparent' %>;">
+                                    
+                                    <% if (ins.quantidade_pendente > 0 && (!user || (user.cargo !== 'Monitor' && user.cargo !== 'Coordenador'))) { %>
+                                        <td style="text-align: center;">
+                                            <input type="checkbox" name="selecionados" value="<%= ins.insumo_id %>" class="check-item" onclick="toggleRow(this, '<%= ins.insumo_id %>')">
+                                        </td>
+                                        <td><strong style="color: #1e293b; font-size: 1.05rem;"><%= ins.descricao %></strong> <br><span style="color: #64748b; font-size: 0.85rem;">UN: <%= ins.unidade %></span></td>
+                                        <td style="text-align: center; color: #ef4444; font-weight: bold; font-size: 1.2rem;"><%= ins.quantidade_pendente %></td>
+                                        <td>
+                                            <div class="box-info box-reserva" title="Separado especificamente para este processo">Reservado: <%= ins.quantidade_reservada || 0 %></div>
+                                            <div class="box-info box-sede">Alm. Sede: <%= ins.saldo_sede || 0 %></div>
+                                            <div class="box-info box-comp">Alm. Comp: <%= ins.saldo_complexo || 0 %></div>
+                                            <div class="box-info box-regional">Alm. Reg: <%= ins.saldo_regional || 0 %></div>
+                                        </td>
+                                        <td>
+                                            <select name="origem_<%= ins.insumo_id %>" class="input-lote" style="width: 100%; font-weight: bold;" disabled id="origem_<%= ins.insumo_id %>" onchange="atualizarMaximo('<%= ins.insumo_id %>')" required>
+                                                <option value="" disabled selected>Escolha de onde tirar...</option>
+                                                <% if (ins.quantidade_reservada > 0) { %><option value="RESERVA" data-saldo="<%= ins.quantidade_reservada %>">Da Reserva (<%= ins.quantidade_reservada %> disp.)</option><% } %>
+                                                <% if (ins.saldo_sede > 0) { %><option value="GERAL_SEDE" data-saldo="<%= ins.saldo_sede %>">Estoque Sede (<%= ins.saldo_sede %> disp.)</option><% } %>
+                                                <% if (ins.saldo_complexo > 0) { %><option value="GERAL_COMPLEXO" data-saldo="<%= ins.saldo_complexo %>">Estoque Complexo (<%= ins.saldo_complexo %> disp.)</option><% } %>
+                                                <% if (ins.saldo_regional > 0) { %><option value="GERAL_REGIONAL" data-saldo="<%= ins.saldo_regional %>">Estoque Regional (<%= ins.saldo_regional %> disp.)</option><% } %>
+                                            </select>
+                                        </td>
+                                        <td>
+                                            <input type="number" name="qtd_<%= ins.insumo_id %>" step="0.01" min="0.01" data-pendente="<%= ins.quantidade_pendente %>" value="<%= ins.quantidade_pendente %>" class="input-lote" style="width: 100%; font-weight:bold; color:#0f172a;" disabled id="qtd_<%= ins.insumo_id %>" oninput="validarQtdDigitada(this, '<%= ins.insumo_id %>')" required>
+                                            <span id="info_max_<%= ins.insumo_id %>" class="helper-text"></span>
+                                        </td>
+                                    <% } else { %>
+                                        <td style="text-align: center;"><i class="fas fa-lock" style="color:#cbd5e1; font-size: 1.2rem;"></i></td>
+                                        <td><strong style="color: #94a3b8;"><%= ins.descricao %></strong> (<%= ins.unidade %>)</td>
+                                        <td style="text-align: center; color: #166534; font-weight: bold; background: #dcfce7; border-radius: 4px;"><i class="fas fa-check-circle"></i> Concluído</td>
+                                        <td colspan="3" style="color: #64748b; font-size: 0.95rem; font-style: italic;">
+                                            Total já enviado: <strong><%= ins.quantidade_enviada || 0 %></strong> de <%= ins.qtd_arredondada || 0 %>
+                                        </td>
+                                    <% } %>
+                                </tr>
+                            <% }) %>
+                        </tbody>
+                    </table>
+                </div>
             </div>
 
             <div class="panel-footer">
@@ -122,7 +163,7 @@
         <div class="section-title" style="background: #334155; color: white; padding: 16px 20px; border-radius: 8px 8px 0 0; font-weight: bold; margin-top: 50px; font-size: 1.1rem;">
             <i class="fas fa-history" style="margin-right: 8px;"></i> HISTÓRICO DE LOTES ENVIADOS
         </div>
-        <div class="table-responsive">
+        <div class="table-responsive" style="max-height: none; overflow-y: visible;">
             <table class="table-custom">
                 <thead><tr><th style="width: 15%;">Data</th><th style="width: 35%;">Itens Despachados</th><th>Entregue Por</th><th>Recebido Por</th><th style="text-align: center; width: 15%;">Ação</th></tr></thead>
                 <tbody>
@@ -155,6 +196,39 @@
     </main>
 
     <script>
+        // Função para Pesquisar os Insumos na Tabela
+        function pesquisarInsumo() {
+            const input = document.getElementById('inputPesquisa').value.toLowerCase();
+            const trs = document.querySelectorAll('#tabelaInsumos tbody tr');
+
+            trs.forEach(tr => {
+                const nomeInsumo = tr.getAttribute('data-nome');
+                if (nomeInsumo) {
+                    if (nomeInsumo.includes(input)) {
+                        tr.style.display = "";
+                    } else {
+                        tr.style.display = "none";
+                    }
+                }
+            });
+        }
+
+        // Função do Acordeão (Sanfona)
+        function toggleSanfona() {
+            const container = document.getElementById("containerInsumos");
+            const icone = document.getElementById("iconeSanfona");
+            
+            if (container.style.display === "none") {
+                container.style.display = "block";
+                icone.classList.remove("fa-chevron-down");
+                icone.classList.add("fa-chevron-up");
+            } else {
+                container.style.display = "none";
+                icone.classList.remove("fa-chevron-up");
+                icone.classList.add("fa-chevron-down");
+            }
+        }
+
         function toggleRow(checkbox, insumoId) {
             const row = document.getElementById('tr_' + insumoId);
             const origem = document.getElementById('origem_' + insumoId);
