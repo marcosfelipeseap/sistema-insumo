@@ -41,7 +41,8 @@ const perfilRoutes = require('./routes/perfil');
 const processoRoutes = require('./routes/processos');
 const estoqueRoutes = require('./routes/estoque');
 const envioRoutes = require('./routes/envios');
-const balancoRoutes = require('./routes/balanco'); // Importação do Balanço Financeiro
+const balancoRoutes = require('./routes/balanco');
+const simuladorRoutes = require('./routes/simulador'); // Integração do Simulador
 
 // Importação dos Middlewares de Segurança
 const { requireLogin } = require('./middlewares/auth');
@@ -53,7 +54,8 @@ app.use('/perfil', requireLogin, perfilRoutes);
 app.use('/processos', requireLogin, processoRoutes);
 app.use('/estoque', requireLogin, estoqueRoutes);
 app.use('/envios', requireLogin, envioRoutes);
-app.use('/balanco', requireLogin, balancoRoutes); // Integração da rota do Balanço
+app.use('/balanco', requireLogin, balancoRoutes);
+app.use('/simulador', requireLogin, simuladorRoutes); // Rota do Simulador protegida
 
 // Rota raiz redirecionando automaticamente para a página de processos
 app.get('/', (req, res) => {
