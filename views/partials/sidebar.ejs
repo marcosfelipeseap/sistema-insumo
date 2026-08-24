@@ -9,7 +9,7 @@
         <div style="font-size:11px; color:#94a3b8; text-transform:uppercase; letter-spacing:0.5px; margin-bottom:5px;">Logado como</div>
         <div style="font-weight:bold; color:white; display:flex; justify-content:space-between; align-items:center;">
             <span><%= user ? user.username : 'Visitante' %></span>
-            <span style="font-size:10px; color:#94a3b8;">(<%= user ? user.role : '' %>)</span>
+            <span style="font-size:10px; color:#94a3b8;">(<%= user ? user.cargo : '' %>)</span>
         </div>
     </div>
 
@@ -17,5 +17,22 @@
         <a href="/processos" class="nav-item"><i class="fas fa-folder-open"></i> Processos & Demandas</a>
         <a href="/estoque" class="nav-item"><i class="fas fa-boxes"></i> Almoxarifado</a>
         <a href="/envios" class="nav-item"><i class="fas fa-truck-loading"></i> Envios para Produção</a>
+        
+        <!-- Renderização Condicional do Painel Admin -->
+        <% if (user && user.cargo === 'admin') { %>
+            <a href="/admin/usuarios" class="nav-item" style="border-top: 1px solid rgba(255,255,255,0.1); margin-top: 10px; padding-top: 10px;">
+                <i class="fas fa-users-cog"></i> Gestão de Usuários
+            </a>
+        <% } %>
+        
+        <!-- Botão Meu Perfil (Visível para todos logados) -->
+        <a href="/perfil" class="nav-item" style="border-top: 1px solid rgba(255,255,255,0.1); margin-top: 10px; padding-top: 10px;">
+            <i class="fas fa-user-circle"></i> Meu Perfil
+        </a>
+
+        <!-- Botão Sair -->
+        <a href="/logout" class="nav-item" style="color: #ef4444; margin-top: auto;">
+            <i class="fas fa-sign-out-alt"></i> Sair
+        </a>
     </nav>
 </aside>

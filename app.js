@@ -1,5 +1,6 @@
 const express = require('express');
 const path = require('path');
+const session = require('express-session');
 require('dotenv').config();
 
 const app = express();
@@ -13,25 +14,44 @@ app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 app.use(express.static(path.join(__dirname, 'public')));
 
-// Middleware de Usuário Mocado (Simulação de Login)
-// Para testar as travas de permissão, altere o 'role' de 'admin' para 'Monitor' ou 'Coordenador'
+// Configuração da Sessão (Persistente por 7 dias para evitar quedas frequentes)
+app.use(session({
+    secret: process.env.SESSION_SECRET || 'chave-secreta-ugtr-2026',
+    resave: false,
+    saveUninitialized: false,
+    cookie: {
+        maxAge: 1000 * 60 * 60 * 24 * 7 // 7 dias em milissegundos
+    }
+}));
+
+// Middleware Global de Variáveis (Injeta alertas e usuário nas telas)
 app.use((req, res, next) => {
-    res.locals.user = {
-        username: 'Marcos', 
-        role: 'admin' 
-    };
+    res.locals.user = req.session.user || null;
+    res.locals.erro = req.session.erro || null;
+    res.locals.sucesso = req.session.sucesso || null;
+    delete req.session.erro;
+    delete req.session.sucesso;
     next();
 });
 
 // Importação das Rotas
+const authRoutes = require('./routes/auth');
+const adminRoutes = require('./routes/admin');
+const perfilRoutes = require('./routes/perfil');
 const processoRoutes = require('./routes/processos');
 const estoqueRoutes = require('./routes/estoque');
 const envioRoutes = require('./routes/envios');
 
+// Importação dos Middlewares de Segurança
+const { requireLogin } = require('./middlewares/auth');
+
 // Integração das Rotas na Aplicação
-app.use('/processos', processoRoutes);
-app.use('/estoque', estoqueRoutes);
-app.use('/envios', envioRoutes);
+app.use('/', authRoutes); // Rotas de login e cadastro são públicas
+app.use('/admin', requireLogin, adminRoutes);
+app.use('/perfil', requireLogin, perfilRoutes);
+app.use('/processos', requireLogin, processoRoutes);
+app.use('/estoque', requireLogin, estoqueRoutes);
+app.use('/envios', requireLogin, envioRoutes);
 
 // Rota raiz redirecionando automaticamente para a página de processos
 app.get('/', (req, res) => {

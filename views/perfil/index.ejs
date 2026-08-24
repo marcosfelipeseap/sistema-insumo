@@ -1,0 +1,90 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <title>Meu Perfil - Controle de Insumos</title>
+    <link rel="stylesheet" href="/css/style.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+</head>
+<body>
+    <%- include('../partials/sidebar') %>
+    
+    <main class="main-content">
+        <div class="page-header" style="margin-bottom: 20px;">
+            <div>
+                <h1>Meu Perfil</h1>
+                <p style="color:#64748b; font-size: 1.05rem; margin-top: 5px;">Mantenha seus dados atualizados e gerencie sua senha.</p>
+            </div>
+        </div>
+
+        <% if (typeof erro !== 'undefined' && erro) { %>
+            <div style="background: #fee2e2; border: 1px solid #fecaca; color: #991b1b; padding: 12px 16px; border-radius: 6px; margin-bottom: 20px; font-weight: bold;">
+                <i class="fas fa-exclamation-triangle"></i> <%= erro %>
+            </div>
+        <% } %>
+        <% if (typeof sucesso !== 'undefined' && sucesso) { %>
+            <div style="background: #dcfce3; border: 1px solid #bbf7d0; color: #166534; padding: 12px 16px; border-radius: 6px; margin-bottom: 20px; font-weight: bold;">
+                <i class="fas fa-check-circle"></i> <%= sucesso %>
+            </div>
+        <% } %>
+
+        <div class="grid-cards">
+            <!-- Card de Dados Pessoais -->
+            <div class="card" style="border-top-color: #2563eb;">
+                <div style="display:flex; justify-content:space-between; margin-bottom:15px; border-bottom: 1px solid #e2e8f0; padding-bottom: 10px;">
+                    <h3 style="color: #1e293b;"><i class="fas fa-id-card" style="color: #2563eb;"></i> Dados Pessoais</h3>
+                </div>
+                
+                <form action="/perfil/dados" method="POST">
+                    <div style="margin-bottom: 15px;">
+                        <label style="display: block; font-weight: bold; color: #475569; margin-bottom: 5px; font-size: 0.9rem;">Nome Completo</label>
+                        <input type="text" name="nome" value="<%= usuario.nome %>" required style="width: 100%; padding: 10px; border: 1px solid #cbd5e1; border-radius: 6px; box-sizing: border-box;">
+                    </div>
+                    <div style="margin-bottom: 15px;">
+                        <label style="display: block; font-weight: bold; color: #475569; margin-bottom: 5px; font-size: 0.9rem;">Nome de Usuário</label>
+                        <input type="text" name="usuario" value="<%= usuario.usuario %>" required style="width: 100%; padding: 10px; border: 1px solid #cbd5e1; border-radius: 6px; box-sizing: border-box;">
+                    </div>
+                    <div style="margin-bottom: 20px;">
+                        <label style="display: block; font-weight: bold; color: #475569; margin-bottom: 5px; font-size: 0.9rem;">Endereço de E-mail</label>
+                        <input type="email" name="email" value="<%= usuario.email %>" required style="width: 100%; padding: 10px; border: 1px solid #cbd5e1; border-radius: 6px; box-sizing: border-box;">
+                    </div>
+                    
+                    <div class="card-footer">
+                        <button type="submit" class="btn btn-primary" style="width: 100%; text-align: center; justify-content: center;">
+                            <i class="fas fa-save"></i> Salvar Alterações
+                        </button>
+                    </div>
+                </form>
+            </div>
+
+            <!-- Card de Senha -->
+            <div class="card" style="border-top-color: #ef4444;">
+                <div style="display:flex; justify-content:space-between; margin-bottom:15px; border-bottom: 1px solid #e2e8f0; padding-bottom: 10px;">
+                    <h3 style="color: #1e293b;"><i class="fas fa-shield-alt" style="color: #ef4444;"></i> Segurança</h3>
+                </div>
+
+                <form action="/perfil/senha" method="POST">
+                    <div style="margin-bottom: 15px;">
+                        <label style="display: block; font-weight: bold; color: #475569; margin-bottom: 5px; font-size: 0.9rem;">Senha Atual</label>
+                        <input type="password" name="senhaAtual" placeholder="Digite sua senha atual" required style="width: 100%; padding: 10px; border: 1px solid #cbd5e1; border-radius: 6px; box-sizing: border-box;">
+                    </div>
+                    <div style="margin-bottom: 15px;">
+                        <label style="display: block; font-weight: bold; color: #475569; margin-bottom: 5px; font-size: 0.9rem;">Nova Senha</label>
+                        <input type="password" name="novaSenha" placeholder="Crie uma nova senha" required style="width: 100%; padding: 10px; border: 1px solid #cbd5e1; border-radius: 6px; box-sizing: border-box;">
+                    </div>
+                    <div style="margin-bottom: 20px;">
+                        <label style="display: block; font-weight: bold; color: #475569; margin-bottom: 5px; font-size: 0.9rem;">Confirme a Nova Senha</label>
+                        <input type="password" name="confirmaSenha" placeholder="Repita a nova senha" required style="width: 100%; padding: 10px; border: 1px solid #cbd5e1; border-radius: 6px; box-sizing: border-box;">
+                    </div>
+                    
+                    <div class="card-footer">
+                        <button type="submit" class="btn" style="background: #ef4444; color: white; width: 100%; text-align: center; justify-content: center;">
+                            <i class="fas fa-key"></i> Atualizar Senha
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </main>
+</body>
+</html>

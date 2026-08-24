@@ -1,0 +1,91 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <title>Gestão de Usuários - Controle de Insumos</title>
+    <link rel="stylesheet" href="/css/style.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        /* Mesmas classes da tabela do Almoxarifado */
+        .card-panel { background: white; border-radius: 12px; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05); overflow: hidden; border: 1px solid #e2e8f0; margin-bottom: 30px; }
+        .card-header-custom { background: #1e293b; color: white; padding: 18px 24px; font-weight: bold; font-size: 1.1rem; display: flex; align-items: center; justify-content: space-between; }
+        
+        .table-responsive { width: 100%; overflow-x: auto; }
+        .table-custom { width: 100%; border-collapse: collapse; }
+        .table-custom th, .table-custom td { padding: 12px 14px; border-bottom: 1px solid #e2e8f0; text-align: left; vertical-align: middle; word-wrap: break-word; }
+        .table-custom th { background-color: #f8fafc; color: #475569; font-weight: 700; text-transform: uppercase; font-size: 0.75rem; white-space: normal; }
+        .table-custom td { color: #1e293b; font-size: 0.9rem; }
+    </style>
+</head>
+<body>
+    <%- include('../partials/sidebar') %>
+    
+    <main class="main-content">
+        <div class="page-header" style="margin-bottom: 20px;">
+            <div>
+                <h1>Gestão de Usuários</h1>
+                <p style="color:#64748b; font-size: 1.05rem; margin-top: 5px;">Aprove novos acessos e administre as contas do sistema.</p>
+            </div>
+        </div>
+
+        <div class="card-panel">
+            <div class="card-header-custom">
+                <span><i class="fas fa-users-cog"></i> Usuários Cadastrados</span>
+            </div>
+            
+            <div class="table-responsive">
+                <table class="table-custom">
+                    <thead>
+                        <tr>
+                            <th>Usuário</th>
+                            <th>Email</th>
+                            <th style="text-align: center;">Nível de Acesso (Cargo)</th>
+                            <th style="text-align: center;">Status</th>
+                            <th style="text-align: center;">Excluir</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <% usuarios.forEach(u => { %>
+                            <tr>
+                                <td>
+                                    <strong><%= u.nome %></strong><br>
+                                    <span style="color: #64748b; font-size: 0.85rem;"><i class="fas fa-at"></i> <%= u.usuario %></span>
+                                </td>
+                                <td><%= u.email %></td>
+                                <td style="text-align: center;">
+                                    <form action="/admin/usuarios/<%= u.id %>/promover" method="POST" style="display:inline;">
+                                        <select name="cargo" onchange="this.form.submit()" style="padding: 6px; border-radius: 4px; border: 1px solid #cbd5e1; font-size: 0.85rem;">
+                                            <option value="usuario" <%= u.cargo === 'usuario' ? 'selected' : '' %>>Usuário</option>
+                                            <option value="Monitor" <%= u.cargo === 'Monitor' ? 'selected' : '' %>>Monitor</option>
+                                            <option value="Coordenador" <%= u.cargo === 'Coordenador' ? 'selected' : '' %>>Coordenador</option>
+                                            <option value="admin" <%= u.cargo === 'admin' ? 'selected' : '' %>>Administrador</option>
+                                        </select>
+                                    </form>
+                                </td>
+                                <td style="text-align: center;">
+                                    <form action="/admin/usuarios/<%= u.id %>/status" method="POST" style="display:inline;">
+                                        <select name="status" onchange="this.form.submit()" style="padding: 6px; border-radius: 4px; border: 1px solid #cbd5e1; font-size: 0.85rem; font-weight: bold; background-color: <%= u.status === 'aprovado' ? '#dcfce3' : (u.status === 'pendente' ? '#fef9c3' : '#fee2e2') %>; color: <%= u.status === 'aprovado' ? '#166534' : (u.status === 'pendente' ? '#854d0e' : '#991b1b') %>;">
+                                            <option value="pendente" <%= u.status === 'pendente' ? 'selected' : '' %>>Pendente</option>
+                                            <option value="aprovado" <%= u.status === 'aprovado' ? 'selected' : '' %>>Aprovado</option>
+                                            <option value="rejeitado" <%= u.status === 'rejeitado' ? 'selected' : '' %>>Rejeitado</option>
+                                        </select>
+                                    </form>
+                                </td>
+                                <td style="text-align: center;">
+                                    <% if (u.usuario !== 'admin') { %>
+                                        <form action="/admin/usuarios/<%= u.id %>/excluir" method="POST" style="display:inline;" onsubmit="return confirm('Tem certeza que deseja excluir esta conta?');">
+                                            <button type="submit" class="btn" style="background: #ef4444; color: white; padding: 6px 10px; font-size: 0.85rem;"><i class="fas fa-trash"></i></button>
+                                        </form>
+                                    <% } else { %>
+                                        <span style="color: #cbd5e1;" title="Admin principal não pode ser excluído"><i class="fas fa-shield-alt"></i></span>
+                                    <% } %>
+                                </td>
+                            </tr>
+                        <% }) %>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </main>
+</body>
+</html>

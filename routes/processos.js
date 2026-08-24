@@ -1,17 +1,17 @@
 const express = require('express');
 const router = express.Router();
 const processoController = require('../controllers/processoController');
+const { requireRoleAcoes } = require('../middlewares/auth');
 
 router.get('/', processoController.index);
-router.get('/novo', processoController.novo);
-router.post('/criar', processoController.criar);
+router.get('/novo', requireRoleAcoes, processoController.novo);
+router.post('/criar', requireRoleAcoes, processoController.criar);
 
-// Rotas específicas do processo
 router.get('/:id/detalhes', processoController.detalhes);
-router.get('/:id/composicao', processoController.composicao); // <- NOVA ROTA AQUI
-router.get('/:id/editar', processoController.editar);
+router.get('/:id/composicao', processoController.composicao); 
+router.get('/:id/editar', requireRoleAcoes, processoController.editar);
 
-router.post('/:id/atualizar', processoController.atualizar);
-router.post('/:id/deletar', processoController.deletar);
+router.post('/:id/atualizar', requireRoleAcoes, processoController.atualizar);
+router.post('/:id/deletar', requireRoleAcoes, processoController.deletar);
 
 module.exports = router;
