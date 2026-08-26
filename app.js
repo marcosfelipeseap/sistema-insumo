@@ -1,7 +1,6 @@
 const express = require('express');
 const path = require('path');
 const session = require('express-session');
-const FileStore = require('session-file-store')(session);
 require('dotenv').config();
 
 const app = express();
@@ -15,19 +14,13 @@ app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 app.use(express.static(path.join(__dirname, 'public')));
 
-// Configuração da Sessão (Imortal por 7 dias com renovação automática)
+// Configuração da Sessão (Persistente por 7 dias)
 app.use(session({
-    store: new FileStore({ 
-        path: './sessions',
-        logFn: function(){}, // Oculta logs poluentes no terminal
-        ttl: 604800          // Garante que o arquivo físico dure 7 dias (em segundos)
-    }),
     secret: process.env.SESSION_SECRET || 'chave-secreta-ugtr-2026',
-    resave: true,             // FORÇA o sistema a salvar a sessão a cada clique (mantém ativo)
-    rolling: true,            // RENOVA o cookie no seu navegador a cada clique, zerando a contagem dos 7 dias
+    resave: false,
     saveUninitialized: false,
     cookie: {
-        maxAge: 1000 * 60 * 60 * 24 * 7 // 7 dias em milissegundos no navegador
+        maxAge: 1000 * 60 * 60 * 24 * 7 // 7 dias em milissegundos
     }
 }));
 
