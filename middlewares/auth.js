@@ -11,21 +11,33 @@ const requireLogin = (req, res, next) => {
 };
 
 const requireAdmin = (req, res, next) => {
+    // [TEMPORÁRIO] Autorizando todos os usuários - bypass de admin
+    /*
     if (!req.session.user || req.session.user.cargo !== 'admin') {
         req.session.erro = 'Acesso negado. Apenas administradores podem acessar esta área.';
         return res.redirect('/processos');
     }
-    next();
+    */
+    
+    next(); // Libera o acesso para todos
 };
 
 const requireRoleAcoes = (req, res, next) => {
+    // [TEMPORÁRIO] Autorizando todos os usuários - bypass de bloqueio de ações
+    /*
     const cargo = req.session.user ? req.session.user.cargo : null;
     // Bloqueia ações de escrita/exclusão para perfis restritos
     if (cargo === 'Monitor' || cargo === 'Coordenador' || cargo === 'usuario') {
-        req.session.erro = 'Seu nível de acesso não permite realizar esta ação.';
-        return res.redirect('back');
+        return res.status(403).send(`
+            <script>
+                alert('Seu nível de acesso não permite realizar esta ação.');
+                window.history.back();
+            </script>
+        `);
     }
-    next();
+    */
+    
+    next(); // Libera o acesso para todos
 };
 
 module.exports = { requireLogin, requireAdmin, requireRoleAcoes };
