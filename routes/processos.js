@@ -3,12 +3,13 @@ const router = express.Router();
 const processoController = require('../controllers/processoController');
 const { requireRoleAcoes } = require('../middlewares/auth');
 
-router.get('/', processoController.index);
+// Adicionamos a trava 'requireRoleAcoes' em todas as rotas para blindar o acesso do Monitor
+router.get('/', requireRoleAcoes, processoController.index);
 router.get('/novo', requireRoleAcoes, processoController.novo);
 router.post('/criar', requireRoleAcoes, processoController.criar);
 
-router.get('/:id/detalhes', processoController.detalhes);
-router.get('/:id/composicao', processoController.composicao); 
+router.get('/:id/detalhes', requireRoleAcoes, processoController.detalhes);
+router.get('/:id/composicao', requireRoleAcoes, processoController.composicao); 
 router.get('/:id/editar', requireRoleAcoes, processoController.editar);
 
 router.post('/:id/atualizar', requireRoleAcoes, processoController.atualizar);

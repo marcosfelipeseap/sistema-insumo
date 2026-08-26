@@ -4,7 +4,6 @@ const estoqueController = {
     index: async (req, res) => {
         try {
             let insumosGeral = await EstoqueService.listarEstoqueGeral();
-            // FILTRO: Remove insumos que não possuem "ref" (como salários/taxas)
             insumosGeral = insumosGeral.filter(i => i.ref && i.ref.trim() !== '');
 
             const { map, processos } = await EstoqueService.mapearUsoPorProcesso();
@@ -12,13 +11,33 @@ const estoqueController = {
         } catch (error) { res.status(500).send('Erro ao carregar almoxarifado geral'); }
     },
 
+    historicoEstoque: async (req, res) => {
+        try {
+            const { data_inicio, data_fim, insumos, busca_geral } = req.query;
+            let insumosSelecionados = [];
+            if (insumos) { insumosSelecionados = Array.isArray(insumos) ? insumos : [insumos]; }
+
+            const resultado = await EstoqueService.obterHistoricoGeralEstoque({ data_inicio, data_fim, busca_geral, insumos: insumosSelecionados });
+
+            const filtrosFormatados = {
+                data_inicio: data_inicio || '',
+                data_fim: data_fim || '',
+                busca_geral: busca_geral || '',
+                insumos: insumosSelecionados.map(String)
+            };
+
+            if (req.headers['x-requested-with'] === 'XMLHttpRequest') {
+                return res.render('estoque/historico', { movimentacoes: resultado.movimentacoes, insumosDisponiveis: resultado.insumosDisponiveis, filtros: filtrosFormatados, user: res.locals.user });
+            }
+
+            res.render('estoque/historico', { movimentacoes: resultado.movimentacoes, insumosDisponiveis: resultado.insumosDisponiveis, filtros: filtrosFormatados, user: res.locals.user });
+        } catch (error) { res.status(500).send('Erro ao carregar histórico de estoque.'); }
+    },
+
     novaEntrada: async (req, res) => {
         try {
-            if (res.locals.user && (res.locals.user.role === 'Monitor' || res.locals.user.role === 'Coordenador')) return res.status(403).send('Sem permissão.');
             let insumosGeral = await EstoqueService.listarEstoqueGeral();
-            // FILTRO: Remove insumos que não possuem "ref"
             insumosGeral = insumosGeral.filter(i => i.ref && i.ref.trim() !== '');
-
             const { map, processos } = await EstoqueService.mapearUsoPorProcesso(); 
             res.render('estoque/entrada', { insumosGeral, insumoProcessoMap: JSON.stringify(map), processosAtivos: processos, user: res.locals.user });
         } catch (error) { res.status(500).send('Erro ao carregar tela'); }
@@ -26,9 +45,6 @@ const estoqueController = {
 
     registrarEntradaLote: async (req, res) => {
         try {
-            if (res.locals.user && (res.locals.user.role === 'Monitor' || res.locals.user.role === 'Coordenador')) return res.status(403).send('Sem permissão.');
-            
-            // Adicionada a captura do qtd_regional do formulário de entrada
             const { insumos_ids, qtd_sede, qtd_complexo, qtd_regional } = req.body;
             const usuario = res.locals.user ? res.locals.user.username : 'Sistema';
             
@@ -52,7 +68,6 @@ const estoqueController = {
 
     separarInsumo: async (req, res) => {
         try {
-            if (res.locals.user && (res.locals.user.role === 'Monitor' || res.locals.user.role === 'Coordenador')) return res.status(403).send('Sem permissão.');
             await EstoqueService.separarParaProcesso(req.params.processoId, req.body.insumo_id, req.body.local, Number(req.body.quantidade), res.locals.user ? res.locals.user.username : 'Sistema');
             res.redirect(`/estoque/processo/${req.params.processoId}/separacao`);
         } catch (error) { res.status(400).send(error.message); }
@@ -67,7 +82,6 @@ const estoqueController = {
 
     editarReserva: async (req, res) => {
         try {
-            if (res.locals.user && (res.locals.user.role === 'Monitor' || res.locals.user.role === 'Coordenador')) return res.status(403).send('Sem permissão.');
             const { reserva_id, insumo_id, nova_quantidade, local_ajuste } = req.body;
             await EstoqueService.editarReserva(reserva_id, Number(nova_quantidade), local_ajuste, res.locals.user ? res.locals.user.username : 'Sistema');
             res.redirect(`/estoque/insumo/${insumo_id}/detalhes`);
@@ -76,7 +90,6 @@ const estoqueController = {
 
     transferirReserva: async (req, res) => {
         try {
-            if (res.locals.user && (res.locals.user.role === 'Monitor' || res.locals.user.role === 'Coordenador')) return res.status(403).send('Sem permissão.');
             const { reserva_id, insumo_id, novo_processo_id } = req.body;
             await EstoqueService.transferirReserva(reserva_id, novo_processo_id, res.locals.user ? res.locals.user.username : 'Sistema');
             res.redirect(`/estoque/insumo/${insumo_id}/detalhes`);
@@ -85,26 +98,31 @@ const estoqueController = {
 
     deletarReserva: async (req, res) => {
         try {
-            if (res.locals.user && (res.locals.user.role === 'Monitor' || res.locals.user.role === 'Coordenador')) return res.status(403).send('Sem permissão.');
             const { reserva_id, insumo_id, local_retorno } = req.body;
             await EstoqueService.deletarReserva(reserva_id, local_retorno, res.locals.user ? res.locals.user.username : 'Sistema');
             res.redirect(`/estoque/insumo/${insumo_id}/detalhes`);
         } catch (error) { res.status(400).send(`<script>alert('${error.message}'); window.history.back();</script>`); }
     },
 
-    // ==========================================
-    // NOVO: ROTA DE AJUSTE MANUAL DE ESTOQUE
-    // ==========================================
     ajustarEstoque: async (req, res) => {
         try {
-            if (res.locals.user && (res.locals.user.role === 'Monitor' || res.locals.user.role === 'Coordenador')) return res.status(403).send('Sem permissão.');
-            
             const { insumo_id, qtd_sede, qtd_complexo, qtd_regional, justificativa } = req.body;
             const usuario = res.locals.user ? res.locals.user.username : 'Sistema';
+            const cargo = res.locals.user ? res.locals.user.cargo : null;
             
-            await EstoqueService.ajustarEstoque(insumo_id, qtd_sede, qtd_complexo, qtd_regional, usuario, justificativa);
+            // Pega o caminho do arquivo gerado pelo Multer
+            let documentoPath = null;
+            if (req.file) {
+                documentoPath = '/uploads/ajustes/' + req.file.filename;
+            }
+
+            // Trava de PDF obrigatório para todos exceto admin
+            if (cargo !== 'admin' && !documentoPath) {
+                throw new Error("O upload de um documento PDF justificando a alteração é obrigatório para o seu nível de acesso.");
+            }
             
-            // Redireciona de volta pra tela de detalhes, recarregando os saldos
+            await EstoqueService.ajustarEstoque(insumo_id, qtd_sede, qtd_complexo, qtd_regional, usuario, justificativa, documentoPath);
+            
             res.redirect(`/estoque/insumo/${insumo_id}/detalhes`);
         } catch (error) { 
             res.status(400).send(`<script>alert('${error.message}'); window.history.back();</script>`); 

@@ -2,8 +2,11 @@ const bcrypt = require('bcrypt'); // Se você instalou o bcryptjs, mude esta lin
 const supabase = require('../config/db');
 
 exports.getLogin = (req, res) => {
-    // Se o usuário já estiver logado, manda direto para os processos
-    if (req.session.user) return res.redirect('/processos');
+    // Se o usuário já estiver logado, faz a triagem de redirecionamento
+    if (req.session.user) {
+        if (req.session.user.cargo === 'Monitor') return res.redirect('/estoque');
+        return res.redirect('/processos');
+    }
     
     // O EJS puxará as mensagens de erro/sucesso automaticamente do res.locals gerado no app.js
     res.render('auth/login', { layout: false }); 
@@ -50,7 +53,11 @@ exports.postLogin = async (req, res) => {
         cargo: usuario.cargo 
     };
     
-    req.session.save(() => res.redirect('/processos'));
+    // Redireciona com base no cargo após salvar a sessão
+    req.session.save(() => {
+        if (usuario.cargo === 'Monitor') return res.redirect('/estoque');
+        res.redirect('/processos');
+    });
 };
 
 exports.postCadastro = async (req, res) => {

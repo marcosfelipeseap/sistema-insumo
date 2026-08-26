@@ -13,15 +13,23 @@
     </div>
 
     <nav class="nav-menu">
-        <a href="/processos" class="nav-item"><i class="fas fa-folder-open"></i> Processos & Demandas</a>
+        <!-- O Monitor NÃO enxerga Processos -->
+        <% if (user && user.cargo !== 'Monitor') { %>
+            <a href="/processos" class="nav-item"><i class="fas fa-folder-open"></i> Processos & Demandas</a>
+        <% } %>
+        
+        <!-- Almoxarifado, Histórico e Envios liberados para todos -->
         <a href="/estoque" class="nav-item"><i class="fas fa-boxes"></i> Almoxarifado</a>
+        <a href="/estoque/historico" class="nav-item"><i class="fas fa-history"></i> Histórico de Estoque</a>
         <a href="/envios" class="nav-item"><i class="fas fa-truck-loading"></i> Envios para Produção</a>
-        <a href="/balanco" class="nav-item"><i class="fas fa-chart-pie"></i> Balanço Financeiro</a>
         
-        <!-- Nova Aba do Simulador de Produção -->
-        <a href="/simulador" class="nav-item"><i class="fas fa-vial"></i> Simulador de Produção</a>
+        <!-- O Monitor NÃO enxerga Balanço e Simulador -->
+        <% if (user && user.cargo !== 'Monitor') { %>
+            <a href="/balanco" class="nav-item"><i class="fas fa-chart-pie"></i> Balanço Financeiro</a>
+            <a href="/simulador" class="nav-item"><i class="fas fa-vial"></i> Simulador de Produção</a>
+        <% } %>
         
-        <!-- Renderização Condicional do Painel Admin -->
+        <!-- Painel Admin apenas para Admin -->
         <% if (user && user.cargo === 'admin') { %>
             <a href="/admin/usuarios" class="nav-item" style="border-top: 1px solid rgba(255,255,255,0.1); margin-top: 10px; padding-top: 10px;">
                 <i class="fas fa-users-cog"></i> Gestão de Usuários

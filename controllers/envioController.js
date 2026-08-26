@@ -48,11 +48,6 @@ const envioController = {
 
     registrarEnvio: async (req, res) => {
         try {
-            // Usa o cargo diretamente (foi atualizado no seu AuthMiddleware)
-            if (res.locals.user && (res.locals.user.cargo === 'Monitor' || res.locals.user.cargo === 'Coordenador')) {
-                return res.status(403).send('Sem permissão.');
-            }
-            
             const { selecionados, recebido_por } = req.body;
             const processoId = req.params.id;
             const entregue_por = res.locals.user ? res.locals.user.username : 'Sistema';

@@ -103,7 +103,8 @@
                             <% processo.insumos_envio.forEach(ins => { %>
                                 <tr id="tr_<%= ins.insumo_id %>" data-nome="<%= ins.descricao.toLowerCase() %>" class="<%= ins.quantidade_pendente === 0 ? '' : 'row-disabled' %>" style="background-color: <%= ins.quantidade_pendente === 0 ? '#f0fdf4' : 'transparent' %>;">
                                     
-                                    <% if (ins.quantidade_pendente > 0 && (!user || (user.cargo !== 'Monitor' && user.cargo !== 'Coordenador'))) { %>
+                                    <!-- A trava visual foi removida aqui, mantendo apenas a regra de quantidade pendente -->
+                                    <% if (ins.quantidade_pendente > 0) { %>
                                         <td style="text-align: center;">
                                             <input type="checkbox" name="selecionados" value="<%= ins.insumo_id %>" class="check-item" onclick="toggleRow(this, '<%= ins.insumo_id %>')">
                                         </td>

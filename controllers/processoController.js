@@ -1,6 +1,6 @@
 const ProcessoService = require('../services/processoService');
 const EstoqueService = require('../services/estoqueService');
-const supabase = require('../config/db'); // Importação necessária para puxar os saldos
+const supabase = require('../config/db'); 
 
 exports.index = async (req, res) => {
     try {
@@ -22,7 +22,11 @@ exports.novo = async (req, res) => {
 
 exports.criar = async (req, res) => {
     try {
-        const { numero, nome, produtos_ids, produtos_qtds } = req.body;
+        let { numero, nome, produtos_ids, produtos_qtds } = req.body;
+        
+        // Higieniza o número do processo removendo os pontos
+        if (numero) numero = String(numero).replace(/\./g, '');
+
         let produtos = [];
         if (Array.isArray(produtos_ids)) {
             for(let i=0; i<produtos_ids.length; i++) {
@@ -43,7 +47,6 @@ exports.detalhes = async (req, res) => {
         const processo = await ProcessoService.obterDetalhesComposicao(req.params.id);
         if (!processo) return res.status(404).send('Processo não encontrado');
 
-        // 1. Busca Saldo Total no Almoxarifado (AGORA SOMANDO SEDE + COMPLEXO + REGIONAL)
         const { data: estoqueGeral } = await supabase.schema('insumo').from('estoque_geral').select('*');
         const mapaEstoque = {};
         if (estoqueGeral) {
@@ -53,14 +56,12 @@ exports.detalhes = async (req, res) => {
             });
         }
 
-        // 2. Busca Quantidade já Separada (Reservada para a Demanda)
         const { data: reservas } = await supabase.schema('insumo').from('estoque_reservas').select('*').eq('processo_id', processo.id);
         const mapaReservas = {};
         if (reservas) {
             reservas.forEach(r => { mapaReservas[r.insumo_id] = Number(r.quantidade_reservada); });
         }
 
-        // 3. Busca Quantidade já Enviada para Produção
         const { data: movs } = await supabase.schema('insumo').from('movimentacoes').select('*').eq('processo_destino_id', processo.id).eq('tipo', 'SAIDA_PRODUCAO');
         const mapaEnviado = {};
         if (movs) {
@@ -70,7 +71,6 @@ exports.detalhes = async (req, res) => {
             });
         }
 
-        // CORREÇÃO: Cria um mapa puxando as Refs reais do Estoque para garantir o filtro
         const insumosGerais = await EstoqueService.listarEstoqueGeral();
         const mapaRef = {};
         insumosGerais.forEach(item => {
@@ -81,10 +81,8 @@ exports.detalhes = async (req, res) => {
             }
         });
 
-        // 4. Junta tudo em uma lista completa
         const listaBase = processo.insumos_consolidados || [];
         processo.insumos_completos = listaBase
-            // Filtra com segurança cruzando os IDs com o mapa de Refs
             .filter(ins => {
                 const ref = ins.ref !== undefined ? ins.ref : mapaRef[ins.insumo_id];
                 return ref && String(ref).trim() !== '';
@@ -112,13 +110,11 @@ exports.detalhes = async (req, res) => {
     }
 };
 
-// Renderiza apenas a tela de composição de custo/insumo
 exports.composicao = async (req, res) => {
     try {
         const processo = await ProcessoService.obterDetalhesComposicao(req.params.id);
         if (!processo) return res.status(404).send('Processo não encontrado');
         
-        // CORREÇÃO: Cria o mapa de referências
         const insumosGerais = await EstoqueService.listarEstoqueGeral();
         const mapaRef = {};
         insumosGerais.forEach(item => {
@@ -129,7 +125,6 @@ exports.composicao = async (req, res) => {
             }
         });
 
-        // Aplica o filtro na composição cruzando o mapaRef
         if (processo.produtos) {
             processo.produtos.forEach(prod => {
                 if (prod.itens) {
@@ -152,7 +147,6 @@ exports.composicao = async (req, res) => {
 
 exports.editar = async (req, res) => {
     try {
-        if (res.locals.user && (res.locals.user.role === 'Monitor' || res.locals.user.role === 'Coordenador')) return res.status(403).send('Sem permissão.');
         const processo = await ProcessoService.buscarPorId(req.params.id);
         res.render('processos/editar', { processo, user: res.locals.user });
     } catch (error) {
@@ -162,8 +156,11 @@ exports.editar = async (req, res) => {
 
 exports.atualizar = async (req, res) => {
     try {
-        if (res.locals.user && (res.locals.user.role === 'Monitor' || res.locals.user.role === 'Coordenador')) return res.status(403).send('Sem permissão.');
-        await ProcessoService.atualizar(req.params.id, req.body.numero, req.body.nome);
+        let { numero, nome } = req.body;
+        // Higieniza o número do processo removendo os pontos
+        if (numero) numero = String(numero).replace(/\./g, '');
+        
+        await ProcessoService.atualizar(req.params.id, numero, nome);
         res.redirect('/processos');
     } catch (error) {
         res.status(500).send('Erro ao atualizar');
@@ -172,7 +169,6 @@ exports.atualizar = async (req, res) => {
 
 exports.deletar = async (req, res) => {
     try {
-        if (res.locals.user && (res.locals.user.role === 'Monitor' || res.locals.user.role === 'Coordenador')) return res.status(403).send('Sem permissão.');
         await ProcessoService.excluir(req.params.id);
         res.redirect('/processos');
     } catch (error) {

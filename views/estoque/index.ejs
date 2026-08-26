@@ -44,11 +44,10 @@
                 <p style="color:#64748b; font-size: 1.05rem; margin-top: 5px;">Controle unificado de insumos da Sede, Complexo e Regional.</p>
             </div>
             <div style="display: flex; gap: 12px;">
-                <% if (!user || (user.role !== 'Monitor' && user.role !== 'Coordenador')) { %>
-                    <a href="/estoque/entrada/nova" class="btn btn-primary" style="background: #10b981; padding: 10px 20px;">
-                        <i class="fas fa-plus-circle"></i> Registrar Nova Entrada
-                    </a>
-                <% } %>
+                <!-- Botão liberado para todos -->
+                <a href="/estoque/entrada/nova" class="btn btn-primary" style="background: #10b981; padding: 10px 20px;">
+                    <i class="fas fa-plus-circle"></i> Registrar Nova Entrada
+                </a>
                 <a href="/processos" class="btn" style="background:#e2e8f0; color:#334155;"><i class="fas fa-folder-open"></i> Ver Processos</a>
             </div>
         </div>

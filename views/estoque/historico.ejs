@@ -1,0 +1,275 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <title>Histórico Geral de Estoque</title>
+    <link rel="stylesheet" href="/css/style.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        .filter-container { background: white; border-radius: 12px; border: 1px solid #e2e8f0; padding: 20px; margin-bottom: 25px; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05); }
+        .accordion-filter-header { cursor: pointer; display: flex; justify-content: space-between; align-items: center; font-weight: bold; color: #0f172a; font-size: 1.05rem; }
+        .accordion-filter-body { margin-top: 15px; padding-top: 15px; border-top: 1px solid #e2e8f0; display: block; }
+        
+        .table-responsive { width: 100%; overflow-x: auto; background: white; border-radius: 12px; border: 1px solid #e2e8f0; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05); transition: opacity 0.3s; }
+        .table-custom { width: 100%; border-collapse: collapse; }
+        .table-custom th, .table-custom td { padding: 14px 16px; border-bottom: 1px solid #e2e8f0; text-align: left; vertical-align: middle; }
+        .table-custom th { background-color: #f8fafc; color: #475569; font-weight: 700; text-transform: uppercase; font-size: 0.75rem; }
+        
+        .badge-tipo { padding: 4px 8px; border-radius: 6px; font-size: 0.75rem; font-weight: bold; display: inline-block; }
+        .badge-entrada { background: #dcfce7; color: #166534; }
+        .badge-saida { background: #fee2e2; color: #991b1b; }
+        .badge-neutro { background: #e0f2fe; color: #0369a1; }
+
+        .form-input { padding: 10px 12px; border: 1px solid #cbd5e1; border-radius: 6px; outline: none; width: 100%; font-family: inherit; font-size: 0.95rem; }
+        .form-input:focus { border-color: #3b82f6; box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1); }
+
+        .dropdown-check-list { display: inline-block; width: 100%; position: relative; }
+        .dropdown-check-list .anchor { width: 100%; padding: 10px 12px; background: white; border: 1px solid #cbd5e1; border-radius: 6px; cursor: pointer; display: flex; justify-content: space-between; align-items: center; color: #334155; font-size: 0.95rem; }
+        .dropdown-check-list .anchor:hover { border-color: #94a3b8; }
+        .dropdown-check-list .items-container { display: none; position: absolute; width: 100%; background: white; border: 1px solid #cbd5e1; z-index: 100; margin-top: -1px; border-radius: 0 0 6px 6px; box-shadow: 0 10px 15px -3px rgba(0,0,0,0.1); }
+        .dropdown-check-list.visible .items-container { display: block; }
+        .dropdown-check-list.visible .anchor { border-bottom-left-radius: 0; border-bottom-right-radius: 0; border-bottom-color: transparent; }
+        .items-container .search-insumo-input { width: 100%; padding: 12px; border: none; border-bottom: 1px solid #e2e8f0; outline: none; background: #f8fafc; font-size: 0.9rem; }
+        .items-container ul { list-style: none; margin: 0; padding: 0; max-height: 250px; overflow-y: auto; }
+        .items-container ul li { padding: 10px 15px; border-bottom: 1px solid #f1f5f9; display: flex; align-items: center; gap: 10px; transition: 0.2s; }
+        .items-container ul li:hover { background: #f8fafc; }
+    </style>
+</head>
+<body>
+    <%- include('../partials/sidebar') %>
+    
+    <main class="main-content">
+        <div class="page-header" style="margin-bottom: 20px;">
+            <div>
+                <h1>Histórico Geral de Estoque</h1>
+                <p style="color:#64748b; font-size: 1.05rem; margin-top: 5px;">Acompanhe todas as entradas, saídas e movimentações registradas nos almoxarifados.</p>
+            </div>
+            <a href="/estoque" class="btn" style="background:#e2e8f0; color:#334155;"><i class="fas fa-arrow-left"></i> Voltar</a>
+        </div>
+
+        <div class="filter-container">
+            <div class="accordion-filter-header" onclick="toggleFilterAccordion()">
+                <span><i class="fas fa-filter" style="color: #3b82f6; margin-right: 8px;"></i> Filtros Avançados (Atualização Automática)</span>
+                <i class="fas fa-chevron-up" id="filterIcon"></i>
+            </div>
+            
+            <div id="filterBody" class="accordion-filter-body">
+                <form action="/estoque/historico" method="GET" id="filterForm">
+                    
+                    <div style="display: grid; grid-template-columns: 1fr 1fr 2fr 2fr; gap: 15px; margin-bottom: 20px; align-items: end;">
+                        <div>
+                            <label style="font-size: 0.85rem; font-weight: bold; color: #475569; margin-bottom: 5px; display: block;">Data Inicial:</label>
+                            <input type="date" name="data_inicio" value="<%= filtros.data_inicio %>" class="form-input" onchange="autoSubmitFiltros()">
+                        </div>
+                        <div>
+                            <label style="font-size: 0.85rem; font-weight: bold; color: #475569; margin-bottom: 5px; display: block;">Data Final:</label>
+                            <input type="date" name="data_fim" value="<%= filtros.data_fim %>" class="form-input" onchange="autoSubmitFiltros()">
+                        </div>
+                        
+                        <div>
+                            <label style="font-size: 0.85rem; font-weight: bold; color: #475569; margin-bottom: 5px; display: block;">Filtrar Insumos Específicos:</label>
+                            <div class="dropdown-check-list" id="dropdownInsumos">
+                                <div class="anchor" onclick="toggleDropdownInsumos()">
+                                    <span id="dropdownTitleInsumos">Todos os insumos...</span>
+                                    <i class="fas fa-chevron-down"></i>
+                                </div>
+                                <div class="items-container">
+                                    <input type="text" id="insumoSearch" onkeyup="filtrarDropdown()" class="search-insumo-input" placeholder="🔍 Buscar insumo na lista...">
+                                    <div style="padding: 10px; border-bottom: 1px solid #e2e8f0; display: flex; justify-content: space-between; background: #f8fafc;">
+                                        <button type="button" onclick="marcarTodos(true)" style="background:none; border:none; color:#2563eb; cursor:pointer; font-size:0.8rem; font-weight:bold;">Marcar Todos</button>
+                                        <button type="button" onclick="marcarTodos(false)" style="background:none; border:none; color:#dc2626; cursor:pointer; font-size:0.8rem; font-weight:bold;">Desmarcar Todos</button>
+                                    </div>
+                                    <ul id="insumoCheckboxList">
+                                        <% insumosDisponiveis.forEach(item => { %>
+                                            <li class="insumo-item" data-text="<%= item.descricao.toLowerCase() %> <%= item.ref ? item.ref.toLowerCase() : '' %>">
+                                                <label style="display:flex; align-items:center; gap:8px; cursor:pointer; width:100%; margin:0;">
+                                                    <input type="checkbox" name="insumos" class="insumo-check" value="<%= item.id %>" <%= filtros.insumos.includes(String(item.id)) ? 'checked' : '' %> style="accent-color: #3b82f6; transform: scale(1.2);">
+                                                    <span style="font-size: 0.9rem;"><strong>[<%= item.ref || 'S/REF' %>]</strong> <%= item.descricao %></span>
+                                                </label>
+                                            </li>
+                                        <% }) %>
+                                    </ul>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div>
+                            <label style="font-size: 0.85rem; font-weight: bold; color: #475569; margin-bottom: 5px; display: block;">Pesquisa Geral (Texto Livre):</label>
+                            <input type="text" name="busca_geral" value="<%= filtros.busca_geral %>" placeholder="Ex: Ajuste, Maria, Comp..." class="form-input" onkeyup="autoSubmitFiltrosDebounced()">
+                        </div>
+                    </div>
+
+                    <div style="text-align: right; border-top: 1px solid #e2e8f0; padding-top: 15px;">
+                        <span id="loadingAviso" style="display: none; color: #3b82f6; font-size: 0.9rem; font-weight: bold; margin-right: 15px;"><i class="fas fa-spinner fa-spin"></i> Atualizando...</span>
+                        <a href="/estoque/historico" class="btn" style="background: #f1f5f9; color: #475569;">Limpar Filtros</a>
+                    </div>
+                </form>
+            </div>
+        </div>
+
+        <div class="table-responsive" id="tabelaContainer">
+            <table class="table-custom">
+                <thead>
+                    <tr>
+                        <th style="width: 10%;">Data / Hora</th>
+                        <th style="width: 15%;">Tipo / Local</th>
+                        <th style="width: 25%;">Insumo</th>
+                        <th style="text-align: center; width: 15%;">Movimentação</th>
+                        <th style="width: 10%;">Responsável</th>
+                        <th style="width: 25%;">Observação / Justificativa</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <% if (movimentacoes && movimentacoes.length > 0) { %>
+                        <% movimentacoes.forEach(m => { 
+                            let badgeClass = 'badge-neutro';
+                            if (m.tipo.includes('ENTRADA') || m.tipo.includes('DEVOLUCAO') || m.tipo.includes('MAIS')) badgeClass = 'badge-entrada';
+                            else if (m.tipo.includes('SAIDA') || m.tipo.includes('MENOS') || m.tipo.includes('RESERVA')) badgeClass = 'badge-saida';
+                        %>
+                            <tr>
+                                <td style="font-size: 0.85rem; color: #64748b;">
+                                    <%= new Date(m.data).toLocaleString('pt-BR') %>
+                                </td>
+                                <td>
+                                    <span class="badge-tipo <%= badgeClass %>" style="margin-bottom: 5px;"><%= m.tipo %></span><br>
+                                    <span style="font-size: 0.8rem; color: #475569; font-weight: bold;"><i class="fas fa-map-marker-alt"></i> <%= m.local %></span>
+                                </td>
+                                <td>
+                                    <strong><%= m.insumo_nome %></strong><br>
+                                    <span style="color: #64748b; font-size: 0.8rem;">Ref: <%= m.ref %> | UN: <%= m.unidade %></span>
+                                </td>
+                                <td style="text-align: center;">
+                                    <div style="font-weight: bold; font-size: 1.15rem; color: <%= m.quantidade_exibicao > 0 ? '#10b981' : (m.quantidade_exibicao < 0 ? '#ef4444' : '#64748b') %>;">
+                                        <%= m.quantidade_exibicao > 0 ? '+' + m.quantidade_exibicao : m.quantidade_exibicao %>
+                                    </div>
+                                    <div style="font-size: 0.75rem; color: #475569; margin-top: 4px; background: #f8fafc; padding: 2px 4px; border-radius: 4px; border: 1px solid #e2e8f0; display: inline-block;">
+                                        Estoque na Hora: <strong><%= m.saldo_momento %></strong>
+                                    </div>
+                                </td>
+                                <td style="font-size: 0.9rem;"><%= m.usuario %></td>
+                                <td style="font-size: 0.9rem; color: #475569; font-style: italic;">
+                                    "<%= m.observacao %>"
+                                    <% if (m.documento_url) { %>
+                                        <br><a href="<%= m.documento_url %>" target="_blank" style="display:inline-block; margin-top:5px; font-size: 0.75rem; background: #e2e8f0; padding: 3px 8px; border-radius: 4px; color: #2563eb; text-decoration: none; font-weight:bold;"><i class="fas fa-file-pdf"></i> Ver Anexo</a>
+                                    <% } %>
+                                </td>
+                            </tr>
+                        <% }) %>
+                    <% } else { %>
+                        <tr>
+                            <td colspan="6" style="text-align: center; color: #64748b; padding: 40px;">
+                                <i class="fas fa-info-circle" style="font-size: 1.5rem; margin-bottom: 10px; display: block;"></i>
+                                Nenhuma movimentação encontrada com os filtros selecionados.
+                            </td>
+                        </tr>
+                    <% } %>
+                </tbody>
+            </table>
+        </div>
+    </main>
+
+    <script>
+        function toggleFilterAccordion() {
+            const body = document.getElementById('filterBody');
+            const icon = document.getElementById('filterIcon');
+            if (body.style.display === 'none') {
+                body.style.display = 'block';
+                icon.className = 'fas fa-chevron-up';
+            } else {
+                body.style.display = 'none';
+                icon.className = 'fas fa-chevron-down';
+            }
+        }
+
+        function toggleDropdownInsumos() {
+            document.getElementById('dropdownInsumos').classList.toggle('visible');
+        }
+
+        document.addEventListener('click', e => {
+            const el = document.getElementById('dropdownInsumos');
+            if (el && !el.contains(e.target)) el.classList.remove('visible');
+        });
+
+        function atualizarTituloDropdown() {
+            const selecionados = document.querySelectorAll('.insumo-check:checked').length;
+            const titulo = document.getElementById('dropdownTitleInsumos');
+            if (selecionados === 0) {
+                titulo.innerHTML = 'Todos os insumos...';
+            } else if (selecionados === 1) {
+                titulo.innerHTML = '<span style="color:#2563eb; font-weight:bold;">1 insumo filtrado</span>';
+            } else {
+                titulo.innerHTML = `<span style="color:#2563eb; font-weight:bold;">${selecionados} insumos filtrados</span>`;
+            }
+        }
+
+        function marcarTodos(estado) {
+            document.querySelectorAll('.insumo-check').forEach(cb => cb.checked = estado);
+            atualizarTituloDropdown();
+            autoSubmitFiltros();
+        }
+
+        function filtrarDropdown() {
+            const valor = document.getElementById('insumoSearch').value.toLowerCase();
+            document.querySelectorAll('.insumo-item').forEach(li => {
+                li.style.display = li.getAttribute('data-text').includes(valor) ? 'flex' : 'none';
+            });
+        }
+
+        let debounceTimer;
+        function autoSubmitFiltrosDebounced() {
+            clearTimeout(debounceTimer);
+            debounceTimer = setTimeout(autoSubmitFiltros, 500); 
+        }
+
+        async function autoSubmitFiltros() {
+            const form = document.getElementById('filterForm');
+            const formData = new FormData(form);
+            const params = new URLSearchParams(formData).toString();
+            
+            const tabelaContainer = document.getElementById('tabelaContainer');
+            const loadingAviso = document.getElementById('loadingAviso');
+            const inputPesquisaDropdown = document.getElementById('insumoSearch').value;
+            
+            tabelaContainer.style.opacity = '0.4';
+            loadingAviso.style.display = 'inline-block';
+            
+            try {
+                const response = await fetch('/estoque/historico?' + params, {
+                    headers: { 'X-Requested-With': 'XMLHttpRequest' }
+                });
+                const html = await response.text();
+                
+                const parser = new DOMParser();
+                const doc = parser.parseFromString(html, 'text/html');
+                
+                tabelaContainer.innerHTML = doc.getElementById('tabelaContainer').innerHTML;
+                document.getElementById('insumoCheckboxList').innerHTML = doc.getElementById('insumoCheckboxList').innerHTML;
+                
+                ligarEventosCheckboxes();
+                atualizarTituloDropdown();
+                
+                document.getElementById('insumoSearch').value = inputPesquisaDropdown;
+                filtrarDropdown();
+
+            } catch (err) {
+                console.error('Erro ao buscar filtros:', err);
+            } finally {
+                tabelaContainer.style.opacity = '1';
+                loadingAviso.style.display = 'none';
+            }
+        }
+
+        function ligarEventosCheckboxes() {
+            document.querySelectorAll('.insumo-check').forEach(cb => {
+                cb.addEventListener('change', () => {
+                    atualizarTituloDropdown();
+                    autoSubmitFiltros();
+                });
+            });
+        }
+
+        ligarEventosCheckboxes();
+        atualizarTituloDropdown();
+    </script>
+</body>
+</html>

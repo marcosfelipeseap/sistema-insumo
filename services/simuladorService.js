@@ -40,7 +40,7 @@ class SimuladorService {
         const { data: produtosDb } = await supabase.schema('orcamento').from('produto').select('id, nome').in('id', produtoIds);
         const { data: composicoes } = await supabase.schema('orcamento').from('produto_composicao').select('*').in('produto_id', produtoIds);
         
-        // Soma a demanda total de cada insumo
+        // Soma a demanda total de cada insumo (pelos IDs originais da composição)
         const demandaMap = {};
         selecao.forEach(item => {
             const compProduto = composicoes.filter(c => String(c.produto_id) === String(item.produto_id));
@@ -50,53 +50,74 @@ class SimuladorService {
             });
         });
 
-        const insumosIds = Object.keys(demandaMap);
-        if(insumosIds.length === 0) throw new Error("Os produtos selecionados não possuem Composição (Ficha Técnica).");
+        const insumosOriginaisIds = Object.keys(demandaMap);
+        if(insumosOriginaisIds.length === 0) throw new Error("Os produtos selecionados não possuem Composição (Ficha Técnica).");
 
-        // Busca insumos Trazendo a REFERÊNCIA (ref)
-        const { data: insumosDb } = await supabase.schema('orcamento').from('insumo').select('id, descricao, unidade, valor_unit, ref').in('id', insumosIds);
+        // Busca detalhes dos insumos exigidos (Para ter o nome exato deles e poder buscar duplicatas)
+        const { data: insumosDb } = await supabase.schema('orcamento').from('insumo').select('id, descricao, unidade, valor_unit, ref').in('id', insumosOriginaisIds);
         
-        // FILTRO CRUCIAL: Remove insumos que não possuem "ref" (Ex: Salário, Transporte)
+        // FILTRO CRUCIAL: Remove insumos não-físicos (sem REF)
         const insumosValidos = insumosDb.filter(i => i.ref && String(i.ref).trim() !== '');
-        
         if (insumosValidos.length === 0) throw new Error("Nenhum insumo físico válido foi encontrado na composição desses produtos.");
 
-        const { data: estoqueDb } = await supabase.schema('insumo').from('estoque_geral').select('*').in('insumo_id', insumosValidos.map(i => i.id));
+        // INTELIGÊNCIA: Busca todos os insumos do orçamento para agrupar duplicatas pelo nome exato
+        const { data: todosInsumosOrçamento } = await supabase.schema('orcamento').from('insumo').select('id, descricao');
         
-        const estoqueMap = {};
-        if(estoqueDb) {
-            estoqueDb.forEach(e => {
-                estoqueMap[e.insumo_id] = Number(e.qtd_sede || 0) + Number(e.qtd_complexo || 0) + Number(e.qtd_regional || 0);
+        // Cria um mapa onde a chave é a "descrição" e o valor é um array de IDs que têm esse mesmo nome
+        const mapaAgrupamentoDescricao = {};
+        if (todosInsumosOrçamento) {
+            todosInsumosOrçamento.forEach(ins => {
+                const desc = ins.descricao.trim();
+                if (!mapaAgrupamentoDescricao[desc]) mapaAgrupamentoDescricao[desc] = [];
+                mapaAgrupamentoDescricao[desc].push(ins.id);
+            });
+        }
+
+        // Puxa TODO o estoque geral (Sede, Complexo, Reg) para fazer a matemática
+        const { data: estoqueGeralDb } = await supabase.schema('insumo').from('estoque_geral').select('*');
+        const mapaEstoqueTotalId = {};
+        if (estoqueGeralDb) {
+            estoqueGeralDb.forEach(e => {
+                mapaEstoqueTotalId[e.insumo_id] = Number(e.qtd_sede || 0) + Number(e.qtd_complexo || 0) + Number(e.qtd_regional || 0);
             });
         }
 
         const insumosResultado = [];
 
-        // Monta o array detalhado de insumos (A matemática global agora é feita no Frontend)
-        insumosValidos.forEach(ins => {
-            const id = ins.id;
-            const necessita = Math.ceil(demandaMap[id]); 
-            const tem = estoqueMap[id] || 0;
-            const valorUnit = Number(ins.valor_unit || 0);
+        insumosValidos.forEach(insOriginal => {
+            const idOriginal = insOriginal.id;
+            const necessita = Math.ceil(demandaMap[idOriginal]); 
+            const valorUnit = Number(insOriginal.valor_unit || 0);
             
-            const falta = necessita > tem ? necessita - tem : 0;
+            // INTELIGÊNCIA EM AÇÃO: Em vez de ver só o ID original, pega todos os IDs clones
+            const desc = insOriginal.descricao.trim();
+            const idsDuplicatas = mapaAgrupamentoDescricao[desc] || [idOriginal];
+
+            // Soma o estoque de todos os clones encontrados
+            let estoqueRealTotal = 0;
+            idsDuplicatas.forEach(cloneId => {
+                if (mapaEstoqueTotalId[cloneId]) {
+                    estoqueRealTotal += mapaEstoqueTotalId[cloneId];
+                }
+            });
+            
+            const falta = necessita > estoqueRealTotal ? necessita - estoqueRealTotal : 0;
             const custoNecessario = necessita * valorUnit;
-            const custoEstoque = tem * valorUnit; 
+            const custoEstoque = estoqueRealTotal * valorUnit; 
             
             insumosResultado.push({
-                id: ins.id,
-                descricao: ins.descricao,
-                unidade: ins.unidade,
+                id: idOriginal, // Mantém o ID original para o checkbox
+                descricao: insOriginal.descricao,
+                unidade: insOriginal.unidade,
                 valor_unit: valorUnit,
                 qtd_necessaria: necessita,
-                qtd_estoque: tem,
+                qtd_estoque: estoqueRealTotal,
                 qtd_falta: falta,
                 custo_total: custoNecessario,
                 custo_estoque: custoEstoque
             });
         });
 
-        // Prepara os produtos para a projeção
         const projecaoProdutos = selecao.map(s => {
             const pNome = produtosDb.find(p => String(p.id) === String(s.produto_id))?.nome || 'Desconhecido';
             return {

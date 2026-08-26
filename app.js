@@ -57,9 +57,12 @@ app.use('/envios', requireLogin, envioRoutes);
 app.use('/balanco', requireLogin, balancoRoutes);
 app.use('/simulador', requireLogin, simuladorRoutes); // Rota do Simulador protegida
 
-// Rota raiz redirecionando automaticamente para a página de processos
+// Rota raiz redirecionando de acordo com o cargo do usuário
 app.get('/', (req, res) => {
-    res.redirect('/processos');
+    if (req.session.user && req.session.user.cargo === 'Monitor') {
+        return res.redirect('/estoque'); // Monitor vai direto para o almoxarifado
+    }
+    res.redirect('/processos'); // Demais cargos (Coordenador, Admin) vão para processos
 });
 
 module.exports = app;

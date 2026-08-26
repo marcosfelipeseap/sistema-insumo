@@ -1,7 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const envioController = require('../controllers/envioController');
-const { requireRoleAcoes } = require('../middlewares/auth');
+// A trava requireRoleAcoes foi removida das rotas de POST abaixo para liberar o Monitor
 
 router.get('/', envioController.index);
 
@@ -12,8 +12,8 @@ router.get('/comprovante/:movimentacaoId', envioController.comprovante);
 router.get('/:id', envioController.painelEnvio);
 router.get('/processo/:id', envioController.painelEnvio);
 
-// Aceita o formulário de envio de qualquer uma das telas (Protegido contra ações não autorizadas)
-router.post('/:id/saida', requireRoleAcoes, envioController.registrarEnvio);
-router.post('/processo/:id/saida', requireRoleAcoes, envioController.registrarEnvio);
+// Aceita o formulário de envio de qualquer uma das telas (LIBERADO PARA O MONITOR)
+router.post('/:id/saida', envioController.registrarEnvio);
+router.post('/processo/:id/saida', envioController.registrarEnvio);
 
 module.exports = router;
