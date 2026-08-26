@@ -4,11 +4,13 @@ const supabase = require('../config/db');
 exports.getLogin = (req, res) => {
     // Se o usuário já estiver logado, manda direto para os processos
     if (req.session.user) return res.redirect('/processos');
-    res.render('auth/login', { layout: false, erro: req.session.erro, sucesso: req.session.sucesso }); 
+    
+    // O EJS puxará as mensagens de erro/sucesso automaticamente do res.locals gerado no app.js
+    res.render('auth/login', { layout: false }); 
 };
 
 exports.getCadastro = (req, res) => {
-    res.render('auth/cadastro', { layout: false, erro: req.session.erro });
+    res.render('auth/cadastro', { layout: false });
 };
 
 exports.postLogin = async (req, res) => {
@@ -16,11 +18,11 @@ exports.postLogin = async (req, res) => {
 
     if (!login || !senha) {
         req.session.erro = 'O preenchimento do login e senha é obrigatório.';
-        return res.redirect('/login');
+        // Garante que a sessão seja salva ANTES de redirecionar
+        return req.session.save(() => res.redirect('/login'));
     }
 
     // Busca o usuário no banco usando o e-mail OU o nome de usuário.
-    // As aspas duplas ("${login}") evitam que o Supabase trave ao ler o @ do e-mail.
     const { data: usuario, error } = await supabase
         .schema('insumo')
         .from('usuarios')
@@ -31,13 +33,13 @@ exports.postLogin = async (req, res) => {
     // Valida se o usuário existe e se a senha criptografada bate com a digitada
     if (error || !usuario || !(await bcrypt.compare(senha, usuario.senha))) {
         req.session.erro = 'Usuário/E-mail ou senha inválidos.';
-        return res.redirect('/login');
+        return req.session.save(() => res.redirect('/login'));
     }
     
     // Trava de segurança para aprovação
     if (usuario.status !== 'aprovado') {
         req.session.erro = 'Sua conta ainda aguarda aprovação do administrador.';
-        return res.redirect('/login');
+        return req.session.save(() => res.redirect('/login'));
     }
 
     // Salva os dados na sessão
@@ -48,7 +50,7 @@ exports.postLogin = async (req, res) => {
         cargo: usuario.cargo 
     };
     
-    res.redirect('/processos');
+    req.session.save(() => res.redirect('/processos'));
 };
 
 exports.postCadastro = async (req, res) => {
@@ -56,7 +58,7 @@ exports.postCadastro = async (req, res) => {
 
     if (!nome || !usuario || !email || !senha) {
         req.session.erro = 'Todos os campos são obrigatórios.';
-        return res.redirect('/cadastro');
+        return req.session.save(() => res.redirect('/cadastro'));
     }
 
     // Criptografa a senha antes de salvar no banco
@@ -69,15 +71,16 @@ exports.postCadastro = async (req, res) => {
     
     if (error) {
         req.session.erro = 'Erro ao realizar cadastro. Verifique se o usuário ou e-mail já existem.';
-        return res.redirect('/cadastro');
+        return req.session.save(() => res.redirect('/cadastro'));
     }
     
     req.session.sucesso = 'Cadastro realizado com sucesso! Aguarde a aprovação do administrador.';
-    res.redirect('/login');
+    req.session.save(() => res.redirect('/login'));
 };
 
 exports.logout = (req, res) => {
-    // Destrói a sessão e volta para a tela de login
-    req.session.destroy();
-    res.redirect('/login');
+    // Destrói a sessão e aguarda concluir antes de voltar para o login
+    req.session.destroy(() => {
+        res.redirect('/login');
+    });
 };
