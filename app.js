@@ -1,39 +1,33 @@
 const express = require('express');
 const path = require('path');
-const session = require('express-session');
+const cookieSession = require('cookie-session'); // Trocamos para cookie-session!
 require('dotenv').config();
 
 const app = express();
 
-// Configurações do View Engine (EJS)
 app.set('view engine', 'ejs');
 app.set('views', path.join(__dirname, 'views'));
 
-// Middlewares Globais
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 app.use(express.static(path.join(__dirname, 'public')));
 
-// Configuração da Sessão (Otimizada para não cair rápido na Vercel)
-app.use(session({
-    secret: process.env.SESSION_SECRET || 'chave-secreta-ugtr-2026',
-    resave: true, // Força a salvar a sessão ativa
-    rolling: true, // Renova o tempo do cookie a cada requisição
-    saveUninitialized: false,
-    cookie: {
-        maxAge: 1000 * 60 * 60 * 24, // Duração de 24 horas
-        httpOnly: true, // Protege contra acessos via JS
-        // secure: process.env.NODE_ENV === 'production' // Descomente esta linha se o seu site na Vercel estiver usando HTTPS/SSL
-    }
+// Sessão baseada em Cookie: Resolve o problema do Vercel Serverless
+app.use(cookieSession({
+    name: 'satre-session',
+    keys: [process.env.SESSION_SECRET || 'chave-secreta-ugtr-2026', 'chave-backup-123'],
+    maxAge: 24 * 60 * 60 * 1000 // 24 horas
 }));
 
-// Middleware Global de Variáveis (Injeta alertas e usuário nas telas)
+// Middleware Global de Variáveis
 app.use((req, res, next) => {
     res.locals.user = req.session.user || null;
     res.locals.erro = req.session.erro || null;
     res.locals.sucesso = req.session.sucesso || null;
-    delete req.session.erro;
-    delete req.session.sucesso;
+    
+    // O cookie-session não tem "delete" fácil para variáveis únicas, então zeramos reatribuindo
+    req.session.erro = null;
+    req.session.sucesso = null;
     next();
 });
 
@@ -60,12 +54,11 @@ app.use('/envios', requireLogin, envioRoutes);
 app.use('/balanco', requireLogin, balancoRoutes);
 app.use('/simulador', requireLogin, simuladorRoutes); 
 
-// Rota raiz redirecionando de acordo com o cargo do usuário
 app.get('/', (req, res) => {
     if (req.session.user && req.session.user.cargo === 'Monitor') {
-        return res.redirect('/estoque'); 
+        return res.redirect('/estoque');
     }
-    res.redirect('/processos'); 
+    res.redirect('/processos');
 });
 
 module.exports = app;
