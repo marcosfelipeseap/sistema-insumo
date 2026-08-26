@@ -14,13 +14,16 @@ app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 app.use(express.static(path.join(__dirname, 'public')));
 
-// Configuração da Sessão (Persistente por 7 dias)
+// Configuração da Sessão (Otimizada para não cair rápido na Vercel)
 app.use(session({
     secret: process.env.SESSION_SECRET || 'chave-secreta-ugtr-2026',
-    resave: false,
+    resave: true, // Força a salvar a sessão ativa
+    rolling: true, // Renova o tempo do cookie a cada requisição
     saveUninitialized: false,
     cookie: {
-        maxAge: 1000 * 60 * 60 * 24 * 7 // 7 dias em milissegundos
+        maxAge: 1000 * 60 * 60 * 24, // Duração de 24 horas
+        httpOnly: true, // Protege contra acessos via JS
+        // secure: process.env.NODE_ENV === 'production' // Descomente esta linha se o seu site na Vercel estiver usando HTTPS/SSL
     }
 }));
 
@@ -42,7 +45,7 @@ const processoRoutes = require('./routes/processos');
 const estoqueRoutes = require('./routes/estoque');
 const envioRoutes = require('./routes/envios');
 const balancoRoutes = require('./routes/balanco');
-const simuladorRoutes = require('./routes/simulador'); // Integração do Simulador
+const simuladorRoutes = require('./routes/simulador'); 
 
 // Importação dos Middlewares de Segurança
 const { requireLogin } = require('./middlewares/auth');
@@ -55,14 +58,14 @@ app.use('/processos', requireLogin, processoRoutes);
 app.use('/estoque', requireLogin, estoqueRoutes);
 app.use('/envios', requireLogin, envioRoutes);
 app.use('/balanco', requireLogin, balancoRoutes);
-app.use('/simulador', requireLogin, simuladorRoutes); // Rota do Simulador protegida
+app.use('/simulador', requireLogin, simuladorRoutes); 
 
 // Rota raiz redirecionando de acordo com o cargo do usuário
 app.get('/', (req, res) => {
     if (req.session.user && req.session.user.cargo === 'Monitor') {
-        return res.redirect('/estoque'); // Monitor vai direto para o almoxarifado
+        return res.redirect('/estoque'); 
     }
-    res.redirect('/processos'); // Demais cargos (Coordenador, Admin) vão para processos
+    res.redirect('/processos'); 
 });
 
 module.exports = app;
