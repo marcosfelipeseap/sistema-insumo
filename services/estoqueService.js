@@ -75,7 +75,6 @@ class EstoqueService {
             let variacaoEcossistema = 0;
             let docLink = null;
 
-            // Extrai o PDF da observação se existir
             if (obsLimpa.includes('| [Doc: ')) {
                 const parts = obsLimpa.split('| [Doc: ');
                 obsLimpa = parts[0].trim();
@@ -184,7 +183,6 @@ class EstoqueService {
             throw new Error("Valores inválidos para ajuste de estoque. Apenas números positivos são permitidos.");
         }
 
-        // 1. Busca todos os IDs duplicados (aliases) deste mesmo material para somar o real
         const { data: insumoBase } = await supabase.schema('orcamento').from('insumo').select('descricao').eq('id', insumoId).single();
         if (!insumoBase) throw new Error("Insumo não encontrado.");
 
@@ -207,7 +205,6 @@ class EstoqueService {
         const diffComp = comp - sumComp;
         const diffReg = reg - sumReg;
 
-        // 2. Registra a carga toda no ID principal
         const { data: geralTarget } = await supabase.schema('insumo').from('estoque_geral').select('*').eq('insumo_id', insumoId).single();
         if (geralTarget) {
             await supabase.schema('insumo').from('estoque_geral').update({ qtd_sede: sede, qtd_complexo: comp, qtd_regional: reg, updated_at: new Date().toISOString() }).eq('insumo_id', insumoId);
@@ -215,13 +212,11 @@ class EstoqueService {
             await supabase.schema('insumo').from('estoque_geral').insert([{ insumo_id: insumoId, qtd_sede: sede, qtd_complexo: comp, qtd_regional: reg }]);
         }
 
-        // 3. ZERA as duplicatas fantasma para arrumar a matemática da tela
         const otherIds = allIds.filter(id => id !== insumoId);
         if (otherIds.length > 0) {
             await supabase.schema('insumo').from('estoque_geral').update({ qtd_sede: 0, qtd_complexo: 0, qtd_regional: 0 }).in('insumo_id', otherIds);
         }
 
-        // 4. Salva a Movimentação com PDF
         const sinalSede = diffSede > 0 ? '+' : '';
         const sinalComp = diffComp > 0 ? '+' : '';
         const sinalReg = diffReg > 0 ? '+' : '';
@@ -489,30 +484,78 @@ class EstoqueService {
         const processo = await ProcessoService.obterDetalhesComposicao(processoId);
         if (!processo) return null;
 
+        // 1. Busca todos os insumos para linkar ID -> Descrição
+        const { data: insumosDb } = await supabase.schema('orcamento').from('insumo').select('id, descricao');
+        const mapDescricao = {};
+        if (insumosDb) {
+            insumosDb.forEach(i => { mapDescricao[i.id] = i.descricao.trim().toLowerCase(); });
+        }
+
+        // 2. Busca movimentações, reservas e estoque geral
         const { data: reservas } = await supabase.schema('insumo').from('estoque_reservas').select('*').eq('processo_id', processoId);
-        const mapaReservas = {};
-        if (reservas) reservas.forEach(r => { mapaReservas[r.insumo_id] = Number(r.quantidade_reservada); });
-
         const { data: estoqueGeral } = await supabase.schema('insumo').from('estoque_geral').select('*');
-        const mapaGeral = {};
-        if (estoqueGeral) estoqueGeral.forEach(e => { mapaGeral[e.insumo_id] = e; });
-
         const { data: movs } = await supabase.schema('insumo').from('movimentacoes').select('*').eq('processo_destino_id', processoId).eq('tipo', 'SAIDA_PRODUCAO');
-        const mapaEnviado = {};
-        if (movs) {
-            movs.forEach(m => {
-                if (!mapaEnviado[m.insumo_id]) mapaEnviado[m.insumo_id] = 0;
-                mapaEnviado[m.insumo_id] += Number(m.quantidade);
+
+        // 3. Agrupa as métricas pela DESCRIÇÃO, e não apenas pelo ID isolado
+        const mapaReservasDesc = {};
+        if (reservas) {
+            reservas.forEach(r => {
+                const desc = mapDescricao[r.insumo_id];
+                if (desc) mapaReservasDesc[desc] = (mapaReservasDesc[desc] || 0) + Number(r.quantidade_reservada);
             });
         }
 
-        processo.insumos_envio = processo.insumos_consolidados.map(ins => {
-            const reservado = mapaReservas[ins.insumo_id] || 0;
-            const geral = mapaGeral[ins.insumo_id] || { qtd_sede: 0, qtd_complexo: 0, qtd_regional: 0 };
-            const enviado = mapaEnviado[ins.insumo_id] || 0;
+        const mapaGeralDesc = {};
+        if (estoqueGeral) {
+            estoqueGeral.forEach(e => {
+                const desc = mapDescricao[e.insumo_id];
+                if (desc) {
+                    if (!mapaGeralDesc[desc]) mapaGeralDesc[desc] = { qtd_sede: 0, qtd_complexo: 0, qtd_regional: 0 };
+                    mapaGeralDesc[desc].qtd_sede += Number(e.qtd_sede || 0);
+                    mapaGeralDesc[desc].qtd_complexo += Number(e.qtd_complexo || 0);
+                    mapaGeralDesc[desc].qtd_regional += Number(e.qtd_regional || 0);
+                }
+            });
+        }
+
+        const mapaEnviadoDesc = {};
+        if (movs) {
+            movs.forEach(m => {
+                const desc = mapDescricao[m.insumo_id];
+                if (desc) mapaEnviadoDesc[desc] = (mapaEnviadoDesc[desc] || 0) + Number(m.quantidade);
+            });
+        }
+
+        // 4. Agrupa as demandas do processo
+        const demandasAgrupadas = {};
+        processo.insumos_consolidados.forEach(ins => {
+            const desc = ins.descricao.trim().toLowerCase();
+            
+            if (!demandasAgrupadas[desc]) {
+                demandasAgrupadas[desc] = { ...ins };
+            } else {
+                demandasAgrupadas[desc].qtd_arredondada += (ins.qtd_arredondada || 0);
+            }
+        });
+
+        // 5. Monta a lista final mapeando os totais usando a descrição da demanda
+        processo.insumos_envio = Object.values(demandasAgrupadas).map(ins => {
+            const desc = ins.descricao.trim().toLowerCase();
+            
+            const reservado = mapaReservasDesc[desc] || 0;
+            const geral = mapaGeralDesc[desc] || { qtd_sede: 0, qtd_complexo: 0, qtd_regional: 0 };
+            const enviado = mapaEnviadoDesc[desc] || 0;
             const pendente = (ins.qtd_arredondada - enviado > 0) ? ins.qtd_arredondada - enviado : 0;
 
-            return { ...ins, quantidade_reservada: reservado, saldo_sede: geral.qtd_sede, saldo_complexo: geral.qtd_complexo, saldo_regional: geral.qtd_regional, quantidade_enviada: enviado, quantidade_pendente: pendente };
+            return { 
+                ...ins, 
+                quantidade_reservada: reservado, 
+                saldo_sede: geral.qtd_sede, 
+                saldo_complexo: geral.qtd_complexo, 
+                saldo_regional: geral.qtd_regional, 
+                quantidade_enviada: enviado, 
+                quantidade_pendente: pendente 
+            };
         });
 
         return processo;
@@ -525,22 +568,83 @@ class EstoqueService {
         for (let envio of loteEnvios) {
             let quantidade = Number(envio.quantidade);
             let origem = envio.origem;
-            let insumoId = envio.insumo_id;
+            let insumoId = envio.insumo_id; 
+
+            // Mapeia todos os aliases do insumo para debitar de qualquer ID correspondente
+            const { data: insumoBase } = await supabase.schema('orcamento').from('insumo').select('descricao').eq('id', insumoId).single();
+            if (!insumoBase) throw new Error("Insumo não encontrado.");
+            const { data: aliases } = await supabase.schema('orcamento').from('insumo').select('id').eq('descricao', insumoBase.descricao.trim());
+            const allIds = aliases ? aliases.map(i => i.id) : [insumoId];
 
             if (origem === 'RESERVA') {
-                const { data: reserva } = await supabase.schema('insumo').from('estoque_reservas').select('*').eq('processo_id', processoId).eq('insumo_id', insumoId).single();
-                if (!reserva || Number(reserva.quantidade_reservada) < quantidade) throw new Error("Quantidade maior que a reserva disponível!");
-                const novoSaldo = Number(reserva.quantidade_reservada) - quantidade;
-                if (novoSaldo > 0) await supabase.schema('insumo').from('estoque_reservas').update({ quantidade_reservada: novoSaldo, updated_at: new Date().toISOString() }).eq('id', reserva.id);
-                else await supabase.schema('insumo').from('estoque_reservas').delete().eq('id', reserva.id);
+                const { data: reservas } = await supabase.schema('insumo').from('estoque_reservas').select('*').eq('processo_id', processoId).in('insumo_id', allIds);
+                
+                let saldoReserva = 0;
+                let idPrincipal = null;
+                if (reservas && reservas.length > 0) {
+                    reservas.forEach(r => saldoReserva += Number(r.quantidade_reservada));
+                    idPrincipal = reservas[0].id;
+                }
+
+                if (saldoReserva < quantidade) throw new Error("Quantidade maior que a reserva disponível!");
+                
+                const novoSaldo = saldoReserva - quantidade;
+                
+                if (novoSaldo > 0) {
+                    await supabase.schema('insumo').from('estoque_reservas').update({ quantidade_reservada: novoSaldo, updated_at: new Date().toISOString() }).eq('id', idPrincipal);
+                    // Apaga redundâncias
+                    const outras = reservas.filter(r => r.id !== idPrincipal).map(r => r.id);
+                    if (outras.length > 0) await supabase.schema('insumo').from('estoque_reservas').delete().in('id', outras);
+                } else {
+                    await supabase.schema('insumo').from('estoque_reservas').delete().in('id', reservas.map(r => r.id));
+                }
             } else {
-                const { data: geral } = await supabase.schema('insumo').from('estoque_geral').select('*').eq('insumo_id', insumoId).single();
-                if (!geral) throw new Error("Insumo não encontrado no estoque geral.");
+                const { data: estoqueList } = await supabase.schema('insumo').from('estoque_geral').select('*').in('insumo_id', allIds);
+                
+                let sumSede = 0, sumComp = 0, sumReg = 0;
+                let idEstoquePrincipal = insumoId;
+                
+                if (estoqueList && estoqueList.length > 0) {
+                    estoqueList.forEach(e => {
+                        sumSede += Number(e.qtd_sede || 0);
+                        sumComp += Number(e.qtd_complexo || 0);
+                        sumReg += Number(e.qtd_regional || 0);
+                    });
+                    idEstoquePrincipal = estoqueList[0].insumo_id; // Consolidar no ID que guarda o saldo
+                }
+
                 const updates = { updated_at: new Date().toISOString() };
-                if (origem === 'GERAL_SEDE') { if (Number(geral.qtd_sede) < quantidade) throw new Error("Saldo insuficiente na Sede."); updates.qtd_sede = Number(geral.qtd_sede) - quantidade; }
-                else if (origem === 'GERAL_COMPLEXO') { if (Number(geral.qtd_complexo) < quantidade) throw new Error("Saldo insuficiente no Complexo."); updates.qtd_complexo = Number(geral.qtd_complexo) - quantidade; }
-                else if (origem === 'GERAL_REGIONAL') { if (Number(geral.qtd_regional) < quantidade) throw new Error("Saldo insuficiente na Regional."); updates.qtd_regional = Number(geral.qtd_regional) - quantidade; }
-                await supabase.schema('insumo').from('estoque_geral').update(updates).eq('insumo_id', insumoId);
+                if (origem === 'GERAL_SEDE') { 
+                    if (sumSede < quantidade) throw new Error("Saldo insuficiente na Sede."); 
+                    updates.qtd_sede = sumSede - quantidade; 
+                    updates.qtd_complexo = sumComp;
+                    updates.qtd_regional = sumReg;
+                }
+                else if (origem === 'GERAL_COMPLEXO') { 
+                    if (sumComp < quantidade) throw new Error("Saldo insuficiente no Complexo."); 
+                    updates.qtd_complexo = sumComp - quantidade; 
+                    updates.qtd_sede = sumSede;
+                    updates.qtd_regional = sumReg;
+                }
+                else if (origem === 'GERAL_REGIONAL') { 
+                    if (sumReg < quantidade) throw new Error("Saldo insuficiente na Regional."); 
+                    updates.qtd_regional = sumReg - quantidade; 
+                    updates.qtd_sede = sumSede;
+                    updates.qtd_complexo = sumComp;
+                }
+
+                const { data: geralTarget } = await supabase.schema('insumo').from('estoque_geral').select('id').eq('insumo_id', idEstoquePrincipal).single();
+                if (geralTarget) {
+                    await supabase.schema('insumo').from('estoque_geral').update(updates).eq('insumo_id', idEstoquePrincipal);
+                } else {
+                    await supabase.schema('insumo').from('estoque_geral').insert([{ insumo_id: idEstoquePrincipal, ...updates }]);
+                }
+
+                // Zera os outros para forçar a consolidação
+                const otherIds = allIds.filter(id => id !== idEstoquePrincipal);
+                if (otherIds.length > 0) {
+                    await supabase.schema('insumo').from('estoque_geral').update({ qtd_sede: 0, qtd_complexo: 0, qtd_regional: 0 }).in('insumo_id', otherIds);
+                }
             }
 
             insercoesMov.push({ tipo: 'SAIDA_PRODUCAO', processo_destino_id: processoId, insumo_id: insumoId, quantidade: quantidade, entregue_por: entreguePor, recebido_por: recebidoPor, observacao: `[LOTE: ${reciboId}] Origem: ${origem.replace('GERAL_', 'Almoxarifado ')}` });
