@@ -44,7 +44,6 @@
                         <select name="produtos_ids[]" class="form-control" required>
                             <option value="">Selecione um Produto...</option>
                             <% produtos.forEach(p => { %>
-                                <!-- Aqui entra o nome_combo criado no Service -->
                                 <option value="<%= p.id %>"><%= p.nome_combo %></option>
                             <% }) %>
                         </select>

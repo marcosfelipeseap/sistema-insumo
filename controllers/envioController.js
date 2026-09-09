@@ -4,7 +4,8 @@ const ProcessoService = require('../services/processoService');
 const envioController = {
     index: async (req, res) => {
         try {
-            const processos = await ProcessoService.listarTodos();
+            // Utiliza a função com o parâmetro 'aprovados' para barrar os Pendentes e Recusados
+            const processos = await ProcessoService.listarTodos(res.locals.user || req.session.user, 'aprovados');
             const ativos = processos.filter(p => p.status !== 'Concluído');
             res.render('envios/index', { processos: ativos, user: res.locals.user });
         } catch (error) {

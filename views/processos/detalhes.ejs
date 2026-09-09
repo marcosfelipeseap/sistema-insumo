@@ -44,6 +44,39 @@
             </div>
         </div>
 
+        <!-- BLOCO DE AVALIAÇÃO E HISTÓRICO -->
+        <div class="card" style="margin-bottom: 20px; background-color: #f8fafc; border: 1px solid #e2e8f0;">
+            <div style="border-bottom: 1px solid #e2e8f0; padding-bottom: 10px; margin-bottom: 10px;">
+                <h3 style="margin-bottom: 5px;">Histórico da Solicitação</h3>
+                <p><strong>Solicitado por:</strong> <%= processo.solicitante_nome || 'Sistema' %></p>
+            </div>
+
+            <% if (processo.status !== 'Pendente') { %>
+                <p><strong>Avaliado por:</strong> <%= processo.avaliador_nome %> em <%= processo.avaliado_em ? new Date(processo.avaliado_em).toLocaleDateString('pt-BR') : 'Data não registrada' %></p>
+                
+                <% if (processo.status === 'Recusado') { %>
+                    <div style="background: #fee2e2; border-left: 4px solid #ef4444; padding: 10px; margin-top: 10px; border-radius: 4px;">
+                        <strong>Justificativa da Recusa:</strong> <br>
+                        <%= processo.justificativa_recusa %>
+                    </div>
+                <% } %>
+            <% } %>
+
+            <!-- Ferramentas exclusivas do Administrador -->
+            <% if (user && user.cargo === 'admin' && (!processo.status || processo.status === 'Pendente')) { %>
+                <div style="margin-top: 20px; display: flex; gap: 15px; flex-wrap: wrap;">
+                    <form action="/processos/<%= processo.id %>/aprovar" method="POST" style="flex: 1;">
+                        <button type="submit" class="btn" style="background: #10b981; color: white; width: 100%; padding: 12px; font-size: 1rem;"><i class="fas fa-check"></i> Aprovar Processo</button>
+                    </form>
+                    
+                    <form action="/processos/<%= processo.id %>/recusar" method="POST" style="display: flex; gap: 10px; flex: 2;">
+                        <input type="text" name="justificativa" class="form-control" placeholder="Justificativa (obrigatório em caso de recusa)" required style="flex: 1;">
+                        <button type="submit" class="btn" style="background: #ef4444; color: white; padding: 12px 20px;"><i class="fas fa-times"></i> Recusar</button>
+                    </form>
+                </div>
+            <% } %>
+        </div>
+
         <% 
             let listaInsumos = processo.insumos_completos || [];
             let totalInsumos = listaInsumos.length;

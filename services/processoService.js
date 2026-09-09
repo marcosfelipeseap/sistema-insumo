@@ -1,15 +1,72 @@
 const supabase = require('../config/db');
 
 class ProcessoService {
-    static async listarTodos() {
-        const { data: processos, error } = await supabase.schema('insumo').from('processos').select('*').order('created_at', { ascending: false });
+    static async listarTodos(user = null, tipo = 'todos') {
+        let query = supabase.schema('insumo').from('processos').select('*').order('created_at', { ascending: false });
+        
+        if (user && user.cargo === 'solicitante') {
+            query = query.eq('solicitante_id', user.id);
+        }
+
+        if (tipo === 'aprovados') {
+            query = query.not('status', 'in', '("Pendente","Recusado")');
+        } else if (tipo === 'solicitacoes') {
+            query = query.in('status', ['Pendente', 'Recusado']);
+        }
+
+        const { data: processos, error } = await query;
         if (error) throw error;
 
-        const { data: produtos } = await supabase.schema('insumo').from('processo_produtos').select('processo_id');
+        const { data: produtos } = await supabase.schema('insumo').from('processo_produtos').select('*');
+        const { data: produtoComposicao } = await supabase.schema('orcamento').from('produto_composicao').select('*');
+        const { data: movimentacoes } = await supabase.schema('insumo').from('movimentacoes').select('*').eq('tipo', 'SAIDA_PRODUCAO');
 
         return processos.map(p => {
-            const count = produtos ? produtos.filter(prod => prod.processo_id === p.id).length : 0;
-            return { ...p, qtd_produtos: count };
+            const prodsDoProcesso = produtos ? produtos.filter(prod => prod.processo_id === p.id) : [];
+            const countProdutos = prodsDoProcesso.length;
+
+            let totalNecessarioGeral = 0;
+            let totalEnviadoGeral = 0;
+
+            if (prodsDoProcesso.length > 0 && produtoComposicao) {
+                let insumosTotaisMap = {};
+
+                prodsDoProcesso.forEach(pp => {
+                    const composicoes = produtoComposicao.filter(pc => pc.produto_id === pp.produto_id);
+                    composicoes.forEach(pc => {
+                        const qtd_total = Number(pc.indice) * Number(pp.quantidade);
+                        if (!insumosTotaisMap[pc.insumo_id]) {
+                            insumosTotaisMap[pc.insumo_id] = 0;
+                        }
+                        insumosTotaisMap[pc.insumo_id] += qtd_total;
+                    });
+                });
+
+                const movsProcesso = movimentacoes ? movimentacoes.filter(m => m.processo_destino_id === p.id) : [];
+                const mapaEnviado = {};
+                movsProcesso.forEach(m => {
+                    if (!mapaEnviado[m.insumo_id]) mapaEnviado[m.insumo_id] = 0;
+                    mapaEnviado[m.insumo_id] += Number(m.quantidade);
+                });
+
+                // Soma o total necessário vs total enviado de forma proporcional
+                Object.keys(insumosTotaisMap).forEach(insumoId => {
+                    const necessario = Math.ceil(insumosTotaisMap[insumoId]);
+                    const enviado = mapaEnviado[insumoId] || 0;
+
+                    totalNecessarioGeral += necessario;
+                    // Limita o enviado ao necessário para não ultrapassar 100% caso haja excesso
+                    totalEnviadoGeral += Math.min(enviado, necessario);
+                });
+            }
+
+            const percentualGeral = totalNecessarioGeral > 0 ? Math.round((totalEnviadoGeral / totalNecessarioGeral) * 100) : 0;
+
+            return { 
+                ...p, 
+                qtd_produtos: countProdutos,
+                percentual_conclusao: percentualGeral 
+            };
         });
     }
 
@@ -33,11 +90,32 @@ class ProcessoService {
         return produtosCombo;
     }
 
-    static async criar(numero, nome, produtos_selecionados) {
+    static async criar(numero, nome, produtos_selecionados, user = null) {
         const numeroSanitizado = numero.replace(/\./g, '');
         
+        const solicitante_id = user ? user.id : null;
+        const solicitante_nome = user ? user.username : 'Desconhecido';
+        
+        let statusInicial = 'Pendente';
+        let avaliador_nome = null;
+        let avaliado_em = null;
+
+        if (user && (user.cargo === 'admin' || user.cargo === 'Coordenador')) {
+            statusInicial = 'Aprovado';
+            avaliador_nome = user.username;
+            avaliado_em = new Date().toISOString();
+        }
+
         const { data: proc, error } = await supabase.schema('insumo').from('processos')
-            .insert([{ numero: numeroSanitizado, nome }])
+            .insert([{ 
+                numero: numeroSanitizado, 
+                nome,
+                status: statusInicial,
+                solicitante_id,
+                solicitante_nome,
+                avaliador_nome,
+                avaliado_em
+            }])
             .select('id').single();
             
         if (error) throw error;
@@ -141,6 +219,27 @@ class ProcessoService {
         await supabase.schema('insumo').from('estoque').delete().eq('processo_id', processoId);
         await supabase.schema('insumo').from('processo_produtos').delete().eq('processo_id', processoId);
         const { error } = await supabase.schema('insumo').from('processos').delete().eq('id', processoId);
+        if (error) throw error;
+    }
+
+    static async aprovar(processoId, avaliador) {
+        const { error } = await supabase.schema('insumo').from('processos')
+            .update({ 
+                status: 'Aprovado',
+                avaliador_nome: avaliador ? avaliador.username : 'Admin',
+                avaliado_em: new Date().toISOString()
+            }).eq('id', processoId);
+        if (error) throw error;
+    }
+
+    static async recusar(processoId, avaliador, justificativa) {
+        const { error } = await supabase.schema('insumo').from('processos')
+            .update({ 
+                status: 'Recusado',
+                justificativa_recusa: justificativa,
+                avaliador_nome: avaliador ? avaliador.username : 'Admin',
+                avaliado_em: new Date().toISOString()
+            }).eq('id', processoId);
         if (error) throw error;
     }
 }

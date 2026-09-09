@@ -22,9 +22,9 @@ const requireAdmin = (req, res, next) => {
 const requireRoleAcoes = (req, res, next) => {
     const cargo = req.session.user ? req.session.user.cargo : null;
     
-    // Bloqueia ações críticas (como ajuste de saldo) para Monitores e usuários comuns
+    // Bloqueia ações críticas (como edição, deleção e ajustes) para Monitores, Solicitantes e usuários comuns
     // Coordenador e Admin passam direto
-    if (cargo === 'Monitor' || cargo === 'usuario' || !cargo) {
+    if (cargo === 'Monitor' || cargo === 'solicitante' || cargo === 'usuario' || !cargo) {
         return res.status(403).send(`
             <script>
                 alert('Acesso negado. Apenas Coordenadores ou Administradores podem realizar esta ação.');

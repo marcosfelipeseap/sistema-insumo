@@ -3,7 +3,7 @@ const ProcessoService = require('./processoService');
 
 class BalancoService {
     static async obterDadosBalanco() {
-        // 1. Mapeia todos os insumos (agora pegando a descrição)
+        // 1. Mapeia todos os insumos
         const { data: insumos } = await supabase.schema('orcamento').from('insumo').select('id, descricao, valor_unit, unidade');
         const mapValorInsumo = {};
         const mapNomeInsumo = {};
@@ -63,8 +63,11 @@ class BalancoService {
             });
         }
 
-        // 4. Calcula o Total Solicitado analisando as composições
-        const { data: processos } = await supabase.schema('insumo').from('processos').select('id, numero, nome, status');
+        // 4. Calcula o Total Solicitado analisando as composições (FILTRADO)
+        const { data: processos } = await supabase.schema('insumo').from('processos')
+            .select('id, numero, nome, status')
+            .not('status', 'in', '("Pendente","Recusado")'); // Ignora as solicitações recusadas e pendentes
+            
         let valorTotalSolicitado = 0;
         const balancoProcessos = [];
 
@@ -96,7 +99,7 @@ class BalancoService {
 
         return {
             valorTotalEstoque,
-            estoqueDetalhado, // Nova array com os detalhes do estoque
+            estoqueDetalhado,
             valorTotalEnviado,
             valorTotalSolicitado,
             balancoProcessos: balancoProcessos.sort((a, b) => b.valor_solicitado - a.valor_solicitado)

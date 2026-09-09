@@ -4,17 +4,26 @@ const supabase = require('../config/db');
 
 exports.index = async (req, res) => {
     try {
-        const processos = await ProcessoService.listarTodos();
-        res.render('processos/index', { processos, user: res.locals.user });
+        const processos = await ProcessoService.listarTodos(req.session.user, 'aprovados');
+        res.render('processos/index', { processos, user: res.locals.user || req.session.user });
     } catch (error) {
         res.status(500).send('Erro ao carregar processos');
+    }
+};
+
+exports.solicitacoes = async (req, res) => {
+    try {
+        const processos = await ProcessoService.listarTodos(req.session.user, 'solicitacoes');
+        res.render('processos/solicitacoes', { processos, user: res.locals.user || req.session.user });
+    } catch (error) {
+        res.status(500).send('Erro ao carregar solicitações');
     }
 };
 
 exports.novo = async (req, res) => {
     try {
         const produtos = await ProcessoService.buscarProdutosOrcamento();
-        res.render('processos/novo', { produtos, user: res.locals.user });
+        res.render('processos/novo', { produtos, user: res.locals.user || req.session.user });
     } catch (error) {
         res.status(500).send('Erro ao carregar formulário');
     }
@@ -24,7 +33,6 @@ exports.criar = async (req, res) => {
     try {
         let { numero, nome, produtos_ids, produtos_qtds } = req.body;
         
-        // Higieniza o número do processo removendo os pontos
         if (numero) numero = String(numero).replace(/\./g, '');
 
         let produtos = [];
@@ -35,7 +43,8 @@ exports.criar = async (req, res) => {
         } else if (produtos_ids) {
             produtos.push({ produto_id: produtos_ids, quantidade: produtos_qtds });
         }
-        await ProcessoService.criar(numero, nome, produtos);
+        
+        await ProcessoService.criar(numero, nome, produtos, req.session.user);
         res.redirect('/processos');
     } catch (error) {
         res.status(500).send('Erro ao criar processo');
@@ -103,7 +112,7 @@ exports.detalhes = async (req, res) => {
                 };
             });
 
-        res.render('processos/detalhes', { processo, user: res.locals.user });
+        res.render('processos/detalhes', { processo, user: req.session.user });
     } catch (error) {
         console.error(error);
         res.status(500).send('<h2 style="color:red;">ERRO REAL AO CARREGAR DETALHES:</h2><pre>' + error.stack + '</pre>');
@@ -138,7 +147,7 @@ exports.composicao = async (req, res) => {
             });
         }
         
-        res.render('processos/composicao', { processo, user: res.locals.user });
+        res.render('processos/composicao', { processo, user: req.session.user });
     } catch (error) {
         console.error(error);
         res.status(500).send('<h2 style="color:red;">ERRO REAL AO CARREGAR COMPOSIÇÃO:</h2><pre>' + error.stack + '</pre>');
@@ -148,7 +157,7 @@ exports.composicao = async (req, res) => {
 exports.editar = async (req, res) => {
     try {
         const processo = await ProcessoService.buscarPorId(req.params.id);
-        res.render('processos/editar', { processo, user: res.locals.user });
+        res.render('processos/editar', { processo, user: req.session.user });
     } catch (error) {
         res.status(500).send('Erro ao carregar edição');
     }
@@ -157,7 +166,6 @@ exports.editar = async (req, res) => {
 exports.atualizar = async (req, res) => {
     try {
         let { numero, nome } = req.body;
-        // Higieniza o número do processo removendo os pontos
         if (numero) numero = String(numero).replace(/\./g, '');
         
         await ProcessoService.atualizar(req.params.id, numero, nome);
@@ -173,5 +181,24 @@ exports.deletar = async (req, res) => {
         res.redirect('/processos');
     } catch (error) {
         res.status(500).send('Erro ao deletar');
+    }
+};
+
+exports.aprovar = async (req, res) => {
+    try {
+        await ProcessoService.aprovar(req.params.id, req.session.user);
+        res.redirect(`/processos/${req.params.id}/detalhes`);
+    } catch (error) {
+        res.status(500).send('Erro ao aprovar processo');
+    }
+};
+
+exports.recusar = async (req, res) => {
+    try {
+        const { justificativa } = req.body;
+        await ProcessoService.recusar(req.params.id, req.session.user, justificativa);
+        res.redirect(`/processos/${req.params.id}/detalhes`);
+    } catch (error) {
+        res.status(500).send('Erro ao recusar processo');
     }
 };

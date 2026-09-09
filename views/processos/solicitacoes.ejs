@@ -1,0 +1,72 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <title>Solicitações - Controle de Insumos</title>
+    <link rel="stylesheet" href="/css/style.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+</head>
+<body>
+    <%- include('../partials/sidebar') %>
+    
+    <main class="main-content">
+        <div class="page-header">
+            <div>
+                <h1>Solicitações Pendentes</h1>
+                <p style="color:#64748b; margin-top:5px;">Aguardando análise e aprovação.</p>
+            </div>
+            <!-- Apenas o Solicitante vê o botão de criar nova solicitação. O Admin não cria. -->
+            <% if (user && user.cargo === 'solicitante') { %>
+                <a href="/processos/novo" class="btn btn-primary"><i class="fas fa-plus"></i> Nova Solicitação</a>
+            <% } %>
+        </div>
+
+        <div class="grid-cards">
+            <% processos.forEach(proc => { %>
+                <div class="card" style="<%= proc.status === 'Recusado' ? 'border-top: 4px solid #ef4444;' : 'border-top: 4px solid #f59e0b;' %>">
+                    <div style="display:flex; justify-content:space-between; margin-bottom:10px;">
+                        <h3><%= proc.nome %></h3>
+                        <span style="font-weight:bold; color:#64748b;">#<%= proc.numero %></span>
+                    </div>
+                    
+                    <% 
+                        let bgCor = '#f59e0b'; 
+                        let icone = 'fa-clock';
+                        if (proc.status === 'Recusado') { bgCor = '#ef4444'; icone = 'fa-times-circle'; }
+                    %>
+                    <p>
+                        <span style="background: <%= bgCor %>; color: white; padding: 4px 8px; border-radius: 4px; font-size: 0.85rem; font-weight: bold;">
+                            <i class="fas <%= icone %>"></i> <%= proc.status %>
+                        </span>
+                    </p>
+                    
+                    <p style="margin-top:10px;"><i class="fas fa-box"></i> <%= proc.qtd_produtos %> Produtos Vinculados</p>
+                    
+                    <% if(proc.solicitante_nome) { %>
+                        <p style="margin-top:5px; font-size: 0.9rem; color: #64748b;">
+                            <i class="fas fa-user"></i> Solicitado por: <%= proc.solicitante_nome %>
+                        </p>
+                    <% } %>
+
+                    <div class="card-footer" style="flex-wrap: wrap; gap: 10px; margin-top: 15px;">
+                        <a href="/processos/<%= proc.id %>/detalhes" class="btn btn-primary" style="padding: 6px 12px; font-size: 0.85rem;"><i class="fas fa-search"></i> Analisar Solicitação</a>
+                        
+                        <% if (user && user.cargo === 'admin') { %>
+                            <div style="display: flex; gap: 5px;">
+                                <a href="/processos/<%= proc.id %>/editar" class="btn" style="background: #f59e0b; color: white; padding: 6px 10px; font-size: 0.85rem;"><i class="fas fa-edit"></i></a>
+                                <form action="/processos/<%= proc.id %>/deletar" method="POST" style="display:inline;" onsubmit="return confirm('Tem certeza que deseja apagar esta solicitação?');">
+                                    <button type="submit" class="btn" style="background: #ef4444; color: white; padding: 6px 10px; font-size: 0.85rem;"><i class="fas fa-trash"></i></button>
+                                </form>
+                            </div>
+                        <% } %>
+                    </div>
+                </div>
+            <% }) %>
+            
+            <% if(processos.length === 0) { %>
+                <p style="grid-column: 1 / -1; text-align: center; color: #64748b; padding: 40px; background: white; border-radius: 8px;">Nenhuma solicitação pendente ou recusada encontrada.</p>
+            <% } %>
+        </div>
+    </main>
+</body>
+</html>

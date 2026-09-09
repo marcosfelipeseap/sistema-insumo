@@ -6,7 +6,6 @@
     <link rel="stylesheet" href="/css/style.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <style>
-        /* Mesmas classes da tabela do Almoxarifado */
         .card-panel { background: white; border-radius: 12px; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05); overflow: hidden; border: 1px solid #e2e8f0; margin-bottom: 30px; }
         .card-header-custom { background: #1e293b; color: white; padding: 18px 24px; font-weight: bold; font-size: 1.1rem; display: flex; align-items: center; justify-content: space-between; }
         
@@ -56,6 +55,7 @@
                                     <form action="/admin/usuarios/<%= u.id %>/promover" method="POST" style="display:inline;">
                                         <select name="cargo" onchange="this.form.submit()" style="padding: 6px; border-radius: 4px; border: 1px solid #cbd5e1; font-size: 0.85rem;">
                                             <option value="usuario" <%= u.cargo === 'usuario' ? 'selected' : '' %>>Usuário</option>
+                                            <option value="solicitante" <%= u.cargo === 'solicitante' ? 'selected' : '' %>>Solicitante</option>
                                             <option value="Monitor" <%= u.cargo === 'Monitor' ? 'selected' : '' %>>Monitor</option>
                                             <option value="Coordenador" <%= u.cargo === 'Coordenador' ? 'selected' : '' %>>Coordenador</option>
                                             <option value="admin" <%= u.cargo === 'admin' ? 'selected' : '' %>>Administrador</option>
