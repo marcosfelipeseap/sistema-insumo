@@ -2,13 +2,12 @@ const bcrypt = require('bcrypt'); // Se você instalou o bcryptjs, mude esta lin
 const supabase = require('../config/db');
 
 exports.getLogin = (req, res) => {
-    // Se o usuário já estiver logado, faz a triagem de redirecionamento
+    // Se o usuário já estiver logado, faz a triagem de redirecionamento padrão
     if (req.session && req.session.user) {
         if (req.session.user.cargo === 'Monitor') return res.redirect('/estoque');
         return res.redirect('/processos');
     }
     
-    // O EJS puxará as mensagens de erro/sucesso automaticamente do res.locals gerado no app.js
     res.render('auth/login', { layout: false }); 
 };
 
@@ -17,14 +16,14 @@ exports.getCadastro = (req, res) => {
 };
 
 exports.postLogin = async (req, res) => {
-    const { login, senha } = req.body;
+    // Adicionado 'destino' para capturar a escolha do usuário
+    const { login, senha, destino } = req.body;
 
     if (!login || !senha) {
         req.session.erro = 'O preenchimento do login e senha é obrigatório.';
         return res.redirect('/login');
     }
 
-    // Busca o usuário no banco usando o e-mail OU o nome de usuário.
     const { data: usuario, error } = await supabase
         .schema('insumo')
         .from('usuarios')
@@ -32,19 +31,16 @@ exports.postLogin = async (req, res) => {
         .or(`email.eq."${login}",usuario.eq."${login}"`)
         .single();
 
-    // Valida se o usuário existe e se a senha criptografada bate com a digitada
     if (error || !usuario || !(await bcrypt.compare(senha, usuario.senha))) {
         req.session.erro = 'Usuário/E-mail ou senha inválidos.';
         return res.redirect('/login');
     }
     
-    // Trava de segurança para aprovação
     if (usuario.status !== 'aprovado') {
         req.session.erro = 'Sua conta ainda aguarda aprovação do administrador.';
         return res.redirect('/login');
     }
 
-    // Salva os dados na sessão (Cookie Session grava na hora)
     req.session.user = { 
         id: usuario.id, 
         username: usuario.nome, 
@@ -52,8 +48,15 @@ exports.postLogin = async (req, res) => {
         cargo: usuario.cargo 
     };
     
-    // Redireciona com base no cargo
-    if (usuario.cargo === 'Monitor') return res.redirect('/estoque');
+    // Lógica de Redirecionamento baseada na escolha do usuário
+    if (destino === 'almoxarifado' && usuario.cargo !== 'solicitante') {
+        return res.redirect('/almoxarifado');
+    }
+
+    if (usuario.cargo === 'Monitor') {
+        return res.redirect('/estoque');
+    }
+    
     res.redirect('/processos');
 };
 
@@ -65,7 +68,6 @@ exports.postCadastro = async (req, res) => {
         return res.redirect('/cadastro');
     }
 
-    // Criptografa a senha antes de salvar no banco
     const senhaCriptografada = await bcrypt.hash(senha, 10);
     
     const { error } = await supabase
@@ -83,7 +85,6 @@ exports.postCadastro = async (req, res) => {
 };
 
 exports.logout = (req, res) => {
-    // Destrói a sessão apagando o cookie
     req.session = null;
     res.redirect('/login');
 };

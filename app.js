@@ -44,6 +44,12 @@ const simuladorRoutes = require('./routes/simulador');
 // Importação dos Middlewares de Segurança
 const { requireLogin } = require('./middlewares/auth');
 
+
+// Nas declarações de rotas (junto com admin, auth, balanco, etc)
+const almoxarifadoRoutes = require('./routes/almoxarifado');
+
+// No uso das rotas
+app.use('/almoxarifado', almoxarifadoRoutes);
 // Integração das Rotas na Aplicação
 app.use('/', authRoutes);
 app.use('/admin', requireLogin, adminRoutes);

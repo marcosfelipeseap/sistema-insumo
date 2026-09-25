@@ -13,12 +13,21 @@
     </div>
 
     <nav class="nav-menu">
+        <!-- BOTÃO ALMOXARIFADO SEDE (DESTACADO NO TOPO) -->
+        <% if (user && user.cargo !== 'solicitante') { %>
+            <div style="margin-bottom: 15px; border-bottom: 1px solid rgba(255,255,255,0.1); padding-bottom: 15px;">
+                <a href="/almoxarifado" class="nav-item" style="background: #2563eb; color: white; font-weight: 700; border-radius: 6px; box-shadow: 0 4px 6px rgba(0,0,0,0.1);">
+                    <i class="fas fa-warehouse" style="color: #93c5fd;"></i> Almoxarifado Sede (Marcenaria)
+                </a>
+            </div>
+        <% } %>
+
         <!-- Solicitações: Visível apenas para Solicitante e Admin -->
         <% if (user && (user.cargo === 'solicitante' || user.cargo === 'admin')) { %>
             <a href="/processos/solicitacoes" class="nav-item"><i class="fas fa-clipboard-check"></i> Solicitações</a>
         <% } %>
 
-        <!-- Processos & Demandas: Visível para Admin, Coordenador e Solicitante (se for o dele) -->
+        <!-- Processos & Demandas -->
         <% if (user && user.cargo !== 'Monitor') { %>
             <a href="/processos" class="nav-item"><i class="fas fa-folder-open"></i> Processos & Demandas</a>
         <% } %>
