@@ -167,9 +167,18 @@
                     <% listaInsumos.forEach(ins => { 
                         let percentualItem = ins.qtd_arredondada > 0 ? Math.round((ins.qtd_enviada / ins.qtd_arredondada) * 100) : 0;
                         if(percentualItem > 100) percentualItem = 100;
+                        
+                        // Lógica avançada: Agrega os produtos de TODOS os IDs mesclados para o filtro funcionar
+                        let prodsRelacionados = [];
+                        let idsArray = ins.insumo_ids || [ins.insumo_id];
+                        idsArray.forEach(id => {
+                            if(mapInsumoProd[id]) {
+                                prodsRelacionados = prodsRelacionados.concat(mapInsumoProd[id]);
+                            }
+                        });
+                        prodsRelacionados = [...new Set(prodsRelacionados)];
                     %>
-                        <!-- Data-produtos guarda o array de produtos que usam esse insumo para o JavaScript ler e filtrar -->
-                        <tr class="insumo-row" data-produtos='<%= JSON.stringify(mapInsumoProd[ins.insumo_id] || []) %>' style="background-color: <%= ins.status_concluido ? '#f0fdf4' : 'transparent' %>;">
+                        <tr class="insumo-row" data-produtos='<%= JSON.stringify(prodsRelacionados) %>' style="background-color: <%= ins.status_concluido ? '#f0fdf4' : 'transparent' %>;">
                             <td><strong><%= ins.descricao %></strong> (<%= ins.unidade %>)</td>
                             <td style="text-align: center; font-size:1.1rem; background: #f8fafc;"><strong><%= ins.qtd_arredondada %></strong></td>
                             <td style="text-align: center; color: #64748b; font-weight: bold;"><%= ins.qtd_almoxarifado %></td>
@@ -196,7 +205,7 @@
             </table>
         </div>
 
-        <!-- NOVO BLOCO: INSUMOS EXTRAS -->
+        <!-- INSUMOS EXTRAS -->
         <% if (processo.insumos_extras && processo.insumos_extras.length > 0) { %>
             <div class="section-title" style="background: #8b5cf6; border-radius: 6px 6px 0 0; margin-top: 30px;">
                 <i class="fas fa-plus-square"></i> MATERIAIS EXTRAS ENVIADOS (FORA DA COMPOSIÇÃO)
@@ -225,7 +234,6 @@
 
     <!-- Scripts de Interatividade -->
     <script>
-        // Função para Abrir/Fechar a Sanfona de Produtos
         function toggleProdutos() {
             const body = document.getElementById('bodyProdutos');
             const icon = document.getElementById('iconProdutos');
@@ -241,7 +249,6 @@
             }
         }
 
-        // Função para pesquisar pelo nome na lista de produtos (caixa de texto)
         function filtrarProdutosNaLista() {
             const termo = document.getElementById('filtroProdutos').value.toLowerCase().trim();
             const itens = document.querySelectorAll('#listaProdutos .product-item');
@@ -258,7 +265,6 @@
             });
         }
 
-        // Função principal: Ao marcar as Checkboxes, filtra a tabela grande de insumos embaixo
         function filtrarInsumosNaTabela() {
             const checkboxes = document.querySelectorAll('.filter-prod-check:checked');
             const produtosSelecionadosIds = Array.from(checkboxes).map(cb => cb.value);
@@ -267,17 +273,13 @@
             let algumaLinhaVisivel = false;
 
             linhasTabela.forEach(linha => {
-                // Se não marcou nenhum produto, mostra todos os insumos
                 if (produtosSelecionadosIds.length === 0) {
                     linha.style.display = '';
                     algumaLinhaVisivel = true;
                     return;
                 }
                 
-                // Lê quais produtos precisam deste insumo
                 const produtosDesseInsumo = JSON.parse(linha.getAttribute('data-produtos') || '[]');
-                
-                // Verifica se há intersecção (se esse insumo atende algum dos produtos selecionados)
                 const isRelacionado = produtosSelecionadosIds.some(idSelecionado => produtosDesseInsumo.includes(idSelecionado));
                 
                 if (isRelacionado) {
@@ -288,12 +290,12 @@
                 }
             });
 
-            // Mostra aviso de tabela vazia caso o filtro elimine todos os resultados
             const avisoVazio = document.getElementById('linhaVaziaFiltro');
             if (avisoVazio) {
                 avisoVazio.style.display = algumaLinhaVisivel ? 'none' : 'table-row';
             }
         }
     </script>
+    
 </body>
 </html>

@@ -68,7 +68,10 @@ exports.detalhes = async (req, res) => {
         const { data: reservas } = await supabase.schema('insumo').from('estoque_reservas').select('*').eq('processo_id', processo.id);
         const mapaReservas = {};
         if (reservas) {
-            reservas.forEach(r => { mapaReservas[r.insumo_id] = Number(r.quantidade_reservada); });
+            reservas.forEach(r => { 
+                if(!mapaReservas[r.insumo_id]) mapaReservas[r.insumo_id] = 0;
+                mapaReservas[r.insumo_id] += Number(r.quantidade_reservada); 
+            });
         }
 
         const { data: movs } = await supabase.schema('insumo').from('movimentacoes').select('*').eq('processo_destino_id', processo.id).eq('tipo', 'SAIDA_PRODUCAO');
@@ -76,10 +79,13 @@ exports.detalhes = async (req, res) => {
         // NOVO: Separador de Movimentações Padrões vs Extras
         const mapaEnviado = {};
         const mapaExtras = {};
-        const isBOM = {}; // Verifica se o item faz parte da composição de custo
+        const isBOM = {}; 
         
         const listaBase = processo.insumos_consolidados || [];
-        listaBase.forEach(ins => isBOM[ins.insumo_id] = true);
+        listaBase.forEach(ins => {
+            const ids = ins.insumo_ids || [ins.insumo_id];
+            ids.forEach(id => isBOM[id] = true);
+        });
 
         if (movs) {
             movs.forEach(m => {
@@ -103,16 +109,34 @@ exports.detalhes = async (req, res) => {
             }
         });
 
-        // Monta os completos padrão
+        // Monta os completos padrão agregando valores se houver múltiplos IDs pro mesmo insumo
         processo.insumos_completos = listaBase
             .filter(ins => {
-                const ref = ins.ref !== undefined ? ins.ref : mapaRef[ins.insumo_id];
-                return ref && String(ref).trim() !== '';
+                const ids = ins.insumo_ids || [ins.insumo_id];
+                let refValid = false;
+                if (ins.ref && String(ins.ref).trim() !== '') {
+                    refValid = true;
+                } else {
+                    ids.forEach(id => {
+                        if (mapaRef[id] && String(mapaRef[id]).trim() !== '') refValid = true;
+                    });
+                }
+                return refValid;
             })
             .map(ins => {
-                const almoxarifado = mapaEstoque[ins.insumo_id] || 0;
-                const separado = mapaReservas[ins.insumo_id] || 0;
-                const enviado = mapaEnviado[ins.insumo_id] || 0;
+                const ids = ins.insumo_ids || [ins.insumo_id];
+                
+                let almoxarifado = 0;
+                let separado = 0;
+                let enviado = 0;
+                
+                // Soma estoque e reservas de todos os IDs mesclados
+                ids.forEach(id => {
+                    almoxarifado += (mapaEstoque[id] || 0);
+                    separado += (mapaReservas[id] || 0);
+                    enviado += (mapaEnviado[id] || 0);
+                });
+
                 const necessario = ins.qtd_arredondada || 0;
 
                 return {

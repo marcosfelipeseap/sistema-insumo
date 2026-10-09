@@ -49,13 +49,11 @@ class ProcessoService {
                     mapaEnviado[m.insumo_id] += Number(m.quantidade);
                 });
 
-                // Soma o total necessário vs total enviado de forma proporcional
                 Object.keys(insumosTotaisMap).forEach(insumoId => {
                     const necessario = Math.ceil(insumosTotaisMap[insumoId]);
                     const enviado = mapaEnviado[insumoId] || 0;
 
                     totalNecessarioGeral += necessario;
-                    // Limita o enviado ao necessário para não ultrapassar 100% caso haja excesso
                     totalEnviadoGeral += Math.min(enviado, necessario);
                 });
             }
@@ -148,7 +146,8 @@ class ProcessoService {
         const { data: produtoComposicao } = await supabase.schema('orcamento').from('produto_composicao').select('produto_id, insumo_id, indice').in('produto_id', produtoIds);
         
         const insumoIds = produtoComposicao.map(pc => pc.insumo_id);
-        const { data: orcamentoInsumos } = await supabase.schema('orcamento').from('insumo').select('id, descricao, unidade, valor_unit').in('id', insumoIds.length > 0 ? insumoIds : [0]);
+        
+        const { data: orcamentoInsumos } = await supabase.schema('orcamento').from('insumo').select('id, descricao, unidade, valor_unit, ref').in('id', insumoIds.length > 0 ? insumoIds : [0]);
 
         let insumosTotaisMap = {};
         
@@ -158,20 +157,32 @@ class ProcessoService {
             
             const composicoes = produtoComposicao.filter(pc => pc.produto_id === pp.produto_id);
             const itens = composicoes.map(pc => {
-                const oInsumo = orcamentoInsumos.find(i => i.id === pc.insumo_id);
+                const oInsumo = orcamentoInsumos.find(i => i.id === pc.insumo_id) || { descricao: 'Desconhecido', unidade: '-', valor_unit: 0, ref: null };
                 const qtd_base = Number(pc.indice);
                 const qtd_total = qtd_base * Number(pp.quantidade);
 
-                if (!insumosTotaisMap[pc.insumo_id]) {
-                    insumosTotaisMap[pc.insumo_id] = {
-                        insumo_id: pc.insumo_id,
+                // Padroniza a string para forçar itens idênticos a se agruparem
+                const refValida = (oInsumo.ref && String(oInsumo.ref).trim() !== '') ? String(oInsumo.ref).trim() : null;
+                const descNormalizada = oInsumo.descricao.replace(/\s+/g, ' ').replace(/\s+,/g, ',').trim().toUpperCase();
+                const chaveAgrupamento = refValida ? refValida : descNormalizada;
+
+                if (!insumosTotaisMap[chaveAgrupamento]) {
+                    insumosTotaisMap[chaveAgrupamento] = {
+                        insumo_id: pc.insumo_id, // Mantém o principal
+                        insumo_ids: [pc.insumo_id], // ARMAZENA TODOS OS IDs DESTE GRUPO!
                         descricao: oInsumo.descricao,
                         unidade: oInsumo.unidade,
                         valor_unit: oInsumo.valor_unit,
+                        ref: oInsumo.ref,
                         qtd_exata: 0
                     };
+                } else {
+                    if (!insumosTotaisMap[chaveAgrupamento].insumo_ids.includes(pc.insumo_id)) {
+                        insumosTotaisMap[chaveAgrupamento].insumo_ids.push(pc.insumo_id);
+                    }
                 }
-                insumosTotaisMap[pc.insumo_id].qtd_exata += qtd_total;
+                
+                insumosTotaisMap[chaveAgrupamento].qtd_exata += qtd_total;
 
                 return {
                     insumo: oInsumo,
