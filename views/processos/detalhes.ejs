@@ -149,7 +149,7 @@
 
         </div>
 
-        <div class="section-title" style="background: #2563eb; border-radius: 6px 6px 0 0;"><i class="fas fa-clipboard-list"></i> RESUMO CONSOLIDADO DE INSUMOS</div>
+        <div class="section-title" style="background: #2563eb; border-radius: 6px 6px 0 0;"><i class="fas fa-clipboard-list"></i> RESUMO CONSOLIDADO DE INSUMOS PADRÕES</div>
         <div class="table-responsive">
             <table class="table-custom">
                 <thead>
@@ -195,6 +195,32 @@
                 </tbody>
             </table>
         </div>
+
+        <!-- NOVO BLOCO: INSUMOS EXTRAS -->
+        <% if (processo.insumos_extras && processo.insumos_extras.length > 0) { %>
+            <div class="section-title" style="background: #8b5cf6; border-radius: 6px 6px 0 0; margin-top: 30px;">
+                <i class="fas fa-plus-square"></i> MATERIAIS EXTRAS ENVIADOS (FORA DA COMPOSIÇÃO)
+            </div>
+            <div class="table-responsive">
+                <table class="table-custom">
+                    <thead>
+                        <tr>
+                            <th style="width: 50%;">Insumo Extra (Un)</th>
+                            <th style="text-align: center; color: #7c3aed; background: #f5f3ff;">Total Enviado para a Produção</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <% processo.insumos_extras.forEach(ins => { %>
+                            <tr style="background-color: #faf5ff;">
+                                <td><i class="fas fa-star" style="color: #f59e0b; margin-right: 8px;"></i> <strong><%= ins.descricao %></strong> (<%= ins.unidade %>)</td>
+                                <td style="text-align: center; font-size: 1.2rem; color: #6d28d9;"><strong><%= ins.qtd_enviada %></strong></td>
+                            </tr>
+                        <% }) %>
+                    </tbody>
+                </table>
+            </div>
+        <% } %>
+
     </main>
 
     <!-- Scripts de Interatividade -->

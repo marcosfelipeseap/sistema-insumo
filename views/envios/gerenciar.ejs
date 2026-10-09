@@ -6,22 +6,20 @@
     <link rel="stylesheet" href="/css/style.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <style>
-        /* TABELA COM ROLAGEM INTERNA INDEPENDENTE */
         .table-responsive { 
             width: 100%; 
-            max-height: 55vh; /* Limita a altura para que a página não role, só a tabela */
+            max-height: 55vh; 
             overflow-y: auto; 
             background: white; 
             border-radius: 8px; 
             box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1); 
-            margin-bottom: 20px; 
+            margin-bottom: 0px; 
             border: 1px solid #e2e8f0; 
         }
         
         .table-custom { width: 100%; border-collapse: collapse; }
         .table-custom th, .table-custom td { padding: 16px 12px; border-bottom: 1px solid #e2e8f0; text-align: left; vertical-align: middle; }
         
-        /* CABEÇALHO DA TABELA FIXO NO TOPO */
         .table-custom th { 
             background-color: #f8fafc; 
             color: #475569; 
@@ -31,7 +29,7 @@
             position: sticky; 
             top: 0; 
             z-index: 10; 
-            box-shadow: 0 2px 0 0 #cbd5e1; /* Substitui a borda para não sumir ao rolar */
+            box-shadow: 0 2px 0 0 #cbd5e1; 
         }
         
         .box-info { display: inline-block; padding: 4px 8px; border-radius: 6px; font-size: 0.75rem; font-weight: bold; margin-bottom: 4px; border: 1px solid transparent; }
@@ -41,20 +39,37 @@
         .box-regional { background: #ccfbf1; color: #0f766e; border-color: #99f6e4; }
         
         .check-item { transform: scale(1.5); cursor: pointer; accent-color: #f59e0b; }
+        .check-extra { accent-color: #8b5cf6; } 
+
         .input-lote { padding: 10px; border: 1px solid #cbd5e1; border-radius: 6px; outline: none; background: #f8fafc; font-size: 0.95rem; transition: 0.3s; }
         .input-lote:focus { border-color: #3b82f6; background: #fff; box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1); }
         .input-lote:disabled { background: #f1f5f9; cursor: not-allowed; opacity: 0.6; }
         
         .row-disabled { opacity: 0.7; background: #fafafa; transition: 0.3s; }
         .row-selected { opacity: 1; background: #fefce8 !important; border-left: 4px solid #f59e0b; box-shadow: inset 0 0 10px rgba(245, 158, 11, 0.05); }
+        .row-selected-extra { opacity: 1; background: #f5f3ff !important; border-left: 4px solid #8b5cf6; box-shadow: inset 0 0 10px rgba(139, 92, 246, 0.05); }
         
-        .panel-footer { background: white; padding: 25px; border-radius: 8px; border: 1px solid #e2e8f0; display: flex; justify-content: space-between; align-items: flex-end; flex-wrap: wrap; gap: 20px; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1); }
+        .panel-footer { background: white; padding: 25px; border-radius: 8px; border: 1px solid #e2e8f0; display: flex; justify-content: space-between; align-items: flex-end; flex-wrap: wrap; gap: 20px; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1); margin-top: 20px; }
         
         .step-badge { display: inline-flex; align-items: center; justify-content: center; background: #334155; color: white; width: 24px; height: 24px; border-radius: 50%; font-size: 0.8rem; margin-right: 8px; }
         .helper-text { font-size: 0.75rem; display: block; margin-top: 4px; height: 14px; }
         
         .section-title-accordion { cursor: pointer; transition: background 0.3s; }
-        .section-title-accordion:hover { background: #d97706 !important; }
+        .section-title-accordion:hover { filter: brightness(1.1); }
+
+        .search-container { position: relative; }
+        .search-container i { position: absolute; left: 12px; top: 12px; color: #94a3b8; }
+        .search-container input { width: 100%; padding-left: 35px; }
+
+        .modal-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(15, 23, 42, 0.7); z-index: 1000; display: flex; align-items: center; justify-content: center; backdrop-filter: blur(4px); }
+        .modal-content { background: white; width: 90%; max-width: 700px; border-radius: 10px; box-shadow: 0 20px 25px -5px rgba(0,0,0,0.1), 0 10px 10px -5px rgba(0,0,0,0.04); overflow: hidden; display: flex; flex-direction: column; max-height: 90vh; }
+        .modal-header { background: #8b5cf6; color: white; padding: 18px 24px; display: flex; justify-content: space-between; align-items: center; }
+        .modal-header h2 { margin: 0; font-size: 1.25rem; display: flex; align-items: center; gap: 10px; }
+        .close-modal { font-size: 1.5rem; cursor: pointer; transition: 0.2s; opacity: 0.8; }
+        .close-modal:hover { opacity: 1; transform: scale(1.1); }
+        .modal-body { padding: 24px; overflow-y: auto; }
+        .modal-footer { padding: 16px 24px; background: #f8fafc; border-top: 1px solid #e2e8f0; display: flex; justify-content: flex-end; gap: 12px; }
+        .modal-table-row:hover { background-color: #f1f5f9; cursor: pointer; }
     </style>
 </head>
 <body>
@@ -68,26 +83,24 @@
             <a href="/envios" class="btn" style="background:#e2e8f0; color:#334155; font-weight: bold;"><i class="fas fa-arrow-left"></i> Voltar</a>
         </div>
 
-        <form action="/envios/processo/<%= processo.id %>/saida" method="POST" id="formLote">
-            <!-- Cabeçalho Acordeão -->
-            <div class="section-title section-title-accordion" onclick="toggleSanfona()" style="background: #f59e0b; color: white; padding: 16px 20px; border-radius: 8px 8px 0 0; font-weight: bold; font-size: 1.1rem; display: flex; align-items: center; justify-content: space-between;">
+        <!-- target="_blank" garante que o recibo seja aberto numa nova aba -->
+        <form action="/envios/processo/<%= processo.id %>/saida" method="POST" id="formLote" target="_blank">
+            
+            <!-- 1. ACORDEÃO DA COMPOSIÇÃO PADRÃO -->
+            <div class="section-title section-title-accordion" onclick="toggleSanfona('containerInsumos', 'iconeSanfona')" style="background: #f59e0b; color: white; padding: 16px 20px; border-radius: 8px 8px 0 0; font-weight: bold; font-size: 1.1rem; display: flex; align-items: center; justify-content: space-between;">
                 <div style="display: flex; align-items: center;">
-                    <i class="fas fa-truck-loading" style="font-size: 1.3rem; margin-right: 12px;"></i> SELECIONE OS MATERIAIS PARA ESTE ENVIO
+                    <i class="fas fa-truck-loading" style="font-size: 1.3rem; margin-right: 12px;"></i> MATERIAIS DA COMPOSIÇÃO (PADRÃO)
                 </div>
                 <i id="iconeSanfona" class="fas fa-chevron-up" style="font-size: 1.2rem;"></i>
             </div>
             
-            <!-- Container Sanfona (Engloba Pesquisa e Tabela) -->
-            <div id="containerInsumos" style="border: 1px solid #e2e8f0; border-top: none; padding: 15px; background: white; border-radius: 0 0 8px 8px; margin-bottom: 20px; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1);">
-                
-                <!-- Barra de Pesquisa Fixada acima da tabela -->
-                <div style="margin-bottom: 15px; position: relative;">
-                    <i class="fas fa-search" style="position: absolute; left: 12px; top: 12px; color: #94a3b8;"></i>
-                    <input type="text" id="inputPesquisa" onkeyup="pesquisarInsumo()" placeholder="Pesquisar insumo por nome..." class="input-lote" style="width: 100%; padding-left: 35px;">
+            <div id="containerInsumos" style="border: 1px solid #e2e8f0; border-top: none; padding: 15px; background: white; border-radius: 0 0 8px 8px; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1);">
+                <div class="search-container" style="margin-bottom: 15px;">
+                    <i class="fas fa-search"></i>
+                    <input type="text" id="inputPesquisa" onkeyup="pesquisarTabela('inputPesquisa', 'tabelaInsumos')" placeholder="Pesquisar material da composição..." class="input-lote">
                 </div>
 
-                <!-- Tabela com scroll independente -->
-                <div class="table-responsive" style="margin-bottom: 0; box-shadow: none; border: 1px solid #e2e8f0;">
+                <div class="table-responsive" style="box-shadow: none; border-radius: 8px; border: 1px solid #e2e8f0;">
                     <table class="table-custom" id="tabelaInsumos">
                         <thead>
                             <tr>
@@ -100,10 +113,9 @@
                             </tr>
                         </thead>
                         <tbody>
-                            <% processo.insumos_envio.forEach(ins => { %>
+                            <% (processo.insumos_envio || []).forEach(ins => { %>
                                 <tr id="tr_<%= ins.insumo_id %>" data-nome="<%= ins.descricao.toLowerCase() %>" class="<%= ins.quantidade_pendente === 0 ? '' : 'row-disabled' %>" style="background-color: <%= ins.quantidade_pendente === 0 ? '#f0fdf4' : 'transparent' %>;">
                                     
-                                    <!-- A trava visual foi removida aqui, mantendo apenas a regra de quantidade pendente -->
                                     <% if (ins.quantidade_pendente > 0) { %>
                                         <td style="text-align: center;">
                                             <input type="checkbox" name="selecionados" value="<%= ins.insumo_id %>" class="check-item" onclick="toggleRow(this, '<%= ins.insumo_id %>')">
@@ -111,7 +123,7 @@
                                         <td><strong style="color: #1e293b; font-size: 1.05rem;"><%= ins.descricao %></strong> <br><span style="color: #64748b; font-size: 0.85rem;">UN: <%= ins.unidade %></span></td>
                                         <td style="text-align: center; color: #ef4444; font-weight: bold; font-size: 1.2rem;"><%= ins.quantidade_pendente %></td>
                                         <td>
-                                            <div class="box-info box-reserva" title="Separado especificamente para este processo">Reservado: <%= ins.quantidade_reservada || 0 %></div>
+                                            <div class="box-info box-reserva" title="Separado para este processo">Reservado: <%= ins.quantidade_reservada || 0 %></div>
                                             <div class="box-info box-sede">Alm. Sede: <%= ins.saldo_sede || 0 %></div>
                                             <div class="box-info box-comp">Alm. Comp: <%= ins.saldo_complexo || 0 %></div>
                                             <div class="box-info box-regional">Alm. Reg: <%= ins.saldo_regional || 0 %></div>
@@ -144,6 +156,85 @@
                 </div>
             </div>
 
+            <!-- 2. ACORDEÃO DE MATERIAIS EXTRAS -->
+            <div class="section-title section-title-accordion" onclick="toggleSanfona('containerExtras', 'iconeSanfonaExtras')" style="background: #8b5cf6; color: white; padding: 16px 20px; border-radius: 8px 8px 0 0; font-weight: bold; font-size: 1.1rem; display: flex; align-items: center; justify-content: space-between; margin-top: 20px;">
+                <div style="display: flex; align-items: center;">
+                    <i class="fas fa-plus-circle" style="font-size: 1.3rem; margin-right: 12px;"></i> INCLUIR MATERIAIS EXTRAS
+                </div>
+                <i id="iconeSanfonaExtras" class="fas fa-chevron-up" style="font-size: 1.2rem;"></i>
+            </div>
+            
+            <div id="containerExtras" style="border: 1px solid #e2e8f0; border-top: none; padding: 15px; background: white; border-radius: 0 0 8px 8px; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1);">
+                
+                <div style="margin-bottom: 15px; background: #f8fafc; padding: 15px; border-radius: 8px; border: 1px solid #e2e8f0; text-align: center;">
+                    <button type="button" class="btn" style="background: #8b5cf6; color: white; padding: 12px 24px; font-weight: bold; font-size: 1.05rem; display: inline-flex; align-items: center; gap: 8px; border-radius: 6px; box-shadow: 0 4px 6px -1px rgba(139, 92, 246, 0.3);" onclick="abrirModalExtras()">
+                        <i class="fas fa-search-plus"></i> Buscar e Adicionar Vários Insumos Extras
+                    </button>
+                    <p style="color: #64748b; font-size: 0.85rem; margin-top: 8px; margin-bottom: 0;">Itens avulsos ou extras já utilizados neste processo ficam guardados abaixo para novos envios.</p>
+                </div>
+
+                <div class="table-responsive" style="box-shadow: none; border-radius: 8px; border: 1px solid #e2e8f0; max-height: 40vh;">
+                    <table class="table-custom" id="tabelaExtras">
+                        <thead>
+                            <tr>
+                                <th style="width: 5%; text-align: center;"><i class="fas fa-check-square"></i></th>
+                                <th style="width: 30%;"><span class="step-badge" style="background:#8b5cf6;">1</span> Insumo Extra</th>
+                                <th style="width: 15%;">Saldos Disponíveis</th>
+                                <th style="width: 25%;"><span class="step-badge" style="background:#8b5cf6;">2</span> Origem do Material</th>
+                                <th style="width: 15%;"><span class="step-badge" style="background:#8b5cf6;">3</span> Qtd a Enviar</th>
+                                <th style="width: 10%; text-align: center;">Remover</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr id="linhaVaziaExtras" style="<%= (processo.extras_anteriores && processo.extras_anteriores.length > 0) ? 'display: none;' : '' %>">
+                                <td colspan="6" style="text-align: center; color: #94a3b8; padding: 30px;">
+                                    <i class="fas fa-box-open" style="font-size: 2rem; margin-bottom: 10px; opacity: 0.5;"></i><br>
+                                    Nenhum material extra adicionado ainda.<br>Utilize o botão acima para incluir insumos avulsos neste envio.
+                                </td>
+                            </tr>
+
+                            <!-- RENDERIZAÇÃO DOS EXTRAS HISTÓRICOS QUE JÁ FORAM ENVIADOS -->
+                            <% if (processo.extras_anteriores && processo.extras_anteriores.length > 0) { %>
+                                <% processo.extras_anteriores.forEach(ex => { %>
+                                    <tr id="tr_<%= ex.id %>" class="row-disabled">
+                                        <td style="text-align: center;">
+                                            <input type="checkbox" name="selecionados" value="<%= ex.id %>" class="check-item check-extra" onclick="toggleRow(this, '<%= ex.id %>', true)">
+                                        </td>
+                                        <td>
+                                            <strong style="color: #6d28d9; font-size: 1.05rem;"><%= ex.descricao %></strong> <br>
+                                            <span style="color: #64748b; font-size: 0.85rem;">UN: <%= ex.unidade %> <strong style="color:#8b5cf6;">(JÁ UTILIZADO NO PROCESSO)</strong></span>
+                                        </td>
+                                        <td>
+                                            <div class="box-info box-sede">Alm. Sede: <%= ex.saldo_sede || 0 %></div>
+                                            <div class="box-info box-comp">Alm. Comp: <%= ex.saldo_complexo || 0 %></div>
+                                            <div class="box-info box-regional">Alm. Reg: <%= ex.saldo_regional || 0 %></div>
+                                        </td>
+                                        <td>
+                                            <select name="origem_<%= ex.id %>" class="input-lote" style="width: 100%; font-weight: bold;" disabled id="origem_<%= ex.id %>" onchange="atualizarMaximo('<%= ex.id %>')" required>
+                                                <option value="" disabled selected>Escolha de onde tirar...</option>
+                                                <% if (ex.saldo_sede > 0) { %><option value="GERAL_SEDE" data-saldo="<%= ex.saldo_sede %>">Estoque Sede (<%= ex.saldo_sede %> disp.)</option><% } %>
+                                                <% if (ex.saldo_complexo > 0) { %><option value="GERAL_COMPLEXO" data-saldo="<%= ex.saldo_complexo %>">Estoque Complexo (<%= ex.saldo_complexo %> disp.)</option><% } %>
+                                                <% if (ex.saldo_regional > 0) { %><option value="GERAL_REGIONAL" data-saldo="<%= ex.saldo_regional %>">Estoque Regional (<%= ex.saldo_regional %> disp.)</option><% } %>
+                                            </select>
+                                        </td>
+                                        <td>
+                                            <input type="number" name="qtd_<%= ex.id %>" step="0.01" min="0.01" data-pendente="999999" value="1" class="input-lote" style="width: 100%; font-weight:bold; color:#0f172a;" disabled id="qtd_<%= ex.id %>" oninput="validarQtdDigitada(this, '<%= ex.id %>')" required>
+                                            <span id="info_max_<%= ex.id %>" class="helper-text"></span>
+                                        </td>
+                                        <td style="text-align: center;">
+                                            <button type="button" onclick="removerExtra('<%= ex.id %>')" style="background:transparent; border:none; color:#ef4444; cursor:pointer; font-size:1.2rem;" title="Remover Insumo">
+                                                <i class="fas fa-trash"></i>
+                                            </button>
+                                        </td>
+                                    </tr>
+                                <% }) %>
+                            <% } %>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- RODAPÉ DE CONFIRMAÇÃO DO FORMULÁRIO -->
             <div class="panel-footer">
                 <div style="flex: 1; min-width: 250px;">
                     <label style="font-weight:bold; display:block; margin-bottom:8px; color: #475569;"><i class="fas fa-user-check"></i> Entregue por (Almoxarifado):</label>
@@ -151,7 +242,7 @@
                 </div>
                 <div style="flex: 1; min-width: 250px;">
                     <label style="font-weight:bold; display:block; margin-bottom:8px; color:#0f172a;"><i class="fas fa-signature"></i> Recebido por (Produção) <span style="color: #ef4444;">*</span></label>
-                    <input type="text" name="recebido_por" required placeholder="Digite o nome de quem está retirando" class="input-lote" style="width:100%; border: 2px solid #3b82f6; box-shadow: 0 4px 6px -1px rgba(59, 130, 246, 0.1);" autocomplete="off">
+                    <input type="text" name="recebido_por" id="recebido_por" required placeholder="Digite o nome de quem está retirando" class="input-lote" style="width:100%; border: 2px solid #3b82f6; box-shadow: 0 4px 6px -1px rgba(59, 130, 246, 0.1);" autocomplete="off">
                 </div>
                 <div>
                     <button type="submit" class="btn" style="background:#f59e0b; color:white; padding: 14px 28px; font-size: 1.1rem; font-weight: bold; border-radius: 8px; box-shadow: 0 4px 6px rgba(245, 158, 11, 0.3); transition: 0.3s;" onclick="return validarEnvio()" id="btnSubmit">
@@ -161,6 +252,7 @@
             </div>
         </form>
 
+        <!-- Histórico de Envios -->
         <div class="section-title" style="background: #334155; color: white; padding: 16px 20px; border-radius: 8px 8px 0 0; font-weight: bold; margin-top: 50px; font-size: 1.1rem;">
             <i class="fas fa-history" style="margin-right: 8px;"></i> HISTÓRICO DE LOTES ENVIADOS
         </div>
@@ -182,7 +274,7 @@
                                 <td style="color: #475569;"><%= lote.entregue_por %></td>
                                 <td style="color: #0f172a; font-weight: bold;"><%= lote.recebido_por %></td>
                                 <td style="text-align: center;">
-                                    <a href="/envios/comprovante/<%= lote.lote_id %>" class="btn" style="background: #475569; color: white; font-size: 0.85rem; padding: 8px 12px; border-radius: 6px;">
+                                    <a href="/envios/comprovante/<%= lote.lote_id %>" target="_blank" class="btn" style="background: #475569; color: white; font-size: 0.85rem; padding: 8px 12px; border-radius: 6px;">
                                         <i class="fas fa-print"></i> Tirar PDF
                                     </a>
                                 </td>
@@ -196,28 +288,192 @@
         </div>
     </main>
 
+    <!-- MODAL DE EXTRAS -->
+    <div id="modalExtras" class="modal-overlay" style="display: none;">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2><i class="fas fa-list-ul"></i> Catálogo de Insumos Extras</h2>
+                <span class="close-modal" onclick="fecharModalExtras()">&times;</span>
+            </div>
+            <div class="modal-body">
+                <div class="search-container" style="margin-bottom: 15px;">
+                    <i class="fas fa-search"></i>
+                    <input type="text" id="inputPesquisaModal" onkeyup="filtrarModalExtras()" placeholder="Digite para pesquisar pelo nome do insumo..." class="input-lote" style="border: 2px solid #8b5cf6;">
+                </div>
+                
+                <div class="table-responsive" style="max-height: 400px; border: 1px solid #cbd5e1;">
+                    <table class="table-custom">
+                        <thead>
+                            <tr>
+                                <th style="width: 10%; text-align: center;"><i class="fas fa-check-double"></i></th>
+                                <th style="width: 65%;">Descrição do Insumo</th>
+                                <th style="width: 25%; text-align: center;">Unidade</th>
+                            </tr>
+                        </thead>
+                        <tbody id="listaModalExtras">
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn" style="background:#e2e8f0; color:#475569; font-weight: bold;" onclick="fecharModalExtras()">Cancelar</button>
+                <button type="button" class="btn" style="background:#8b5cf6; color:white; font-weight: bold; box-shadow: 0 4px 6px rgba(139, 92, 246, 0.3);" onclick="processarSelecaoModal()">
+                    <i class="fas fa-plus"></i> Adicionar Selecionados
+                </button>
+            </div>
+        </div>
+    </div>
+
     <script>
-        // Função para Pesquisar os Insumos na Tabela
-        function pesquisarInsumo() {
-            const input = document.getElementById('inputPesquisa').value.toLowerCase();
-            const trs = document.querySelectorAll('#tabelaInsumos tbody tr');
+        const infosExtras = <%- JSON.stringify(typeof catalogoExtras !== 'undefined' ? catalogoExtras : []) %>;
+
+        function abrirModalExtras() {
+            document.getElementById('modalExtras').style.display = 'flex';
+            document.getElementById('inputPesquisaModal').value = '';
+            renderizarModalExtras();
+            setTimeout(() => document.getElementById('inputPesquisaModal').focus(), 100);
+        }
+
+        function fecharModalExtras() {
+            document.getElementById('modalExtras').style.display = 'none';
+        }
+
+        function renderizarModalExtras() {
+            const tbody = document.getElementById('listaModalExtras');
+            tbody.innerHTML = '';
+            let countDisponiveis = 0;
+
+            infosExtras.forEach(ex => {
+                if (document.getElementById('tr_' + ex.id)) return;
+                
+                countDisponiveis++;
+                const tr = document.createElement('tr');
+                tr.className = 'modal-table-row';
+                tr.setAttribute('data-nome', ex.descricao.toLowerCase());
+                
+                tr.onclick = function(e) {
+                    if(e.target.tagName !== 'INPUT') {
+                        const chk = document.getElementById('check_modal_' + ex.id);
+                        chk.checked = !chk.checked;
+                    }
+                };
+
+                tr.innerHTML = `
+                    <td style="text-align: center;">
+                        <input type="checkbox" class="check-item check-extra" value="${ex.id}" id="check_modal_${ex.id}">
+                    </td>
+                    <td><label for="check_modal_${ex.id}" style="cursor:pointer; font-weight: 500; color: #1e293b;">${ex.descricao}</label></td>
+                    <td style="text-align: center; color: #64748b;">${ex.unidade}</td>
+                `;
+                tbody.appendChild(tr);
+            });
+
+            if (countDisponiveis === 0) {
+                tbody.innerHTML = `<tr><td colspan="3" style="text-align:center; padding:20px; color:#94a3b8;">Todos os insumos disponíveis já foram adicionados.</td></tr>`;
+            }
+        }
+
+        function filtrarModalExtras() {
+            const input = document.getElementById('inputPesquisaModal').value.toLowerCase();
+            const trs = document.querySelectorAll('#listaModalExtras tr.modal-table-row');
 
             trs.forEach(tr => {
-                const nomeInsumo = tr.getAttribute('data-nome');
-                if (nomeInsumo) {
-                    if (nomeInsumo.includes(input)) {
-                        tr.style.display = "";
-                    } else {
-                        tr.style.display = "none";
-                    }
+                const nome = tr.getAttribute('data-nome');
+                if (nome) {
+                    tr.style.display = nome.includes(input) ? "" : "none";
                 }
             });
         }
 
-        // Função do Acordeão (Sanfona)
-        function toggleSanfona() {
-            const container = document.getElementById("containerInsumos");
-            const icone = document.getElementById("iconeSanfona");
+        function processarSelecaoModal() {
+            const checkboxes = document.querySelectorAll('#listaModalExtras input[type="checkbox"]:checked');
+            if (checkboxes.length === 0) {
+                alert('Selecione pelo menos um insumo da lista antes de clicar em adicionar.');
+                return;
+            }
+
+            checkboxes.forEach(chk => {
+                adicionarLinhaExtra(chk.value);
+            });
+
+            fecharModalExtras();
+        }
+
+        function adicionarLinhaExtra(insId) {
+            const ref = infosExtras.find(i => String(i.id) === String(insId));
+            if (!ref) return;
+
+            const trVazia = document.getElementById('linhaVaziaExtras');
+            if(trVazia) trVazia.style.display = 'none';
+
+            const tbody = document.querySelector('#tabelaExtras tbody');
+            const tr = document.createElement('tr');
+            tr.id = 'tr_' + ref.id;
+            tr.className = 'row-selected-extra';
+            
+            let originOptions = `<option value="" disabled selected>Escolha de onde tirar...</option>`;
+            if(ref.saldo_sede > 0) originOptions += `<option value="GERAL_SEDE" data-saldo="${ref.saldo_sede}">Estoque Sede (${ref.saldo_sede} disp.)</option>`;
+            if(ref.saldo_complexo > 0) originOptions += `<option value="GERAL_COMPLEXO" data-saldo="${ref.saldo_complexo}">Estoque Complexo (${ref.saldo_complexo} disp.)</option>`;
+            if(ref.saldo_regional > 0) originOptions += `<option value="GERAL_REGIONAL" data-saldo="${ref.saldo_regional}">Estoque Regional (${ref.saldo_regional} disp.)</option>`;
+
+            tr.innerHTML = `
+                <td style="text-align: center;">
+                    <input type="checkbox" name="selecionados" value="${ref.id}" class="check-item check-extra" checked onclick="toggleRow(this, '${ref.id}', true)">
+                </td>
+                <td>
+                    <strong style="color: #6d28d9; font-size: 1.05rem;">${ref.descricao}</strong> <br>
+                    <span style="color: #64748b; font-size: 0.85rem;">UN: ${ref.unidade} <strong style="color:#8b5cf6;">(USO LIVRE)</strong></span>
+                </td>
+                <td>
+                    <div class="box-info box-sede">Alm. Sede: ${ref.saldo_sede}</div>
+                    <div class="box-info box-comp">Alm. Comp: ${ref.saldo_complexo}</div>
+                    <div class="box-info box-regional">Alm. Reg: ${ref.saldo_regional}</div>
+                </td>
+                <td>
+                    <select name="origem_${ref.id}" class="input-lote" style="width: 100%; font-weight: bold; border: 2px solid #8b5cf6;" id="origem_${ref.id}" onchange="atualizarMaximo('${ref.id}')" required>
+                        ${originOptions}
+                    </select>
+                </td>
+                <td>
+                    <input type="number" name="qtd_${ref.id}" step="0.01" min="0.01" data-pendente="999999" value="1" class="input-lote" style="width: 100%; font-weight:bold; color:#0f172a;" id="qtd_${ref.id}" oninput="validarQtdDigitada(this, '${ref.id}')" required>
+                    <span id="info_max_${ref.id}" class="helper-text"></span>
+                </td>
+                <td style="text-align: center;">
+                    <button type="button" onclick="removerExtra('${ref.id}')" style="background:transparent; border:none; color:#ef4444; cursor:pointer; font-size:1.2rem;" title="Remover Insumo">
+                        <i class="fas fa-trash"></i>
+                    </button>
+                </td>
+            `;
+
+            tbody.appendChild(tr);
+        }
+
+        function removerExtra(id) {
+            const tr = document.getElementById('tr_' + id);
+            if(tr) tr.remove();
+            
+            const tbody = document.querySelector('#tabelaExtras tbody');
+            const trsRestantes = tbody.querySelectorAll('tr[id^="tr_"]');
+            if(trsRestantes.length === 0) {
+                document.getElementById('linhaVaziaExtras').style.display = '';
+            }
+        }
+
+        function pesquisarTabela(inputId, tabelaId) {
+            const input = document.getElementById(inputId).value.toLowerCase();
+            const trs = document.querySelectorAll(`#${tabelaId} tbody tr`);
+
+            trs.forEach(tr => {
+                const nomeInsumo = tr.getAttribute('data-nome');
+                if (nomeInsumo) {
+                    tr.style.display = nomeInsumo.includes(input) ? "" : "none";
+                }
+            });
+        }
+
+        function toggleSanfona(containerId, iconId) {
+            const container = document.getElementById(containerId);
+            const icone = document.getElementById(iconId);
             
             if (container.style.display === "none") {
                 container.style.display = "block";
@@ -230,7 +486,7 @@
             }
         }
 
-        function toggleRow(checkbox, insumoId) {
+        function toggleRow(checkbox, insumoId, isExtra = false) {
             const row = document.getElementById('tr_' + insumoId);
             const origem = document.getElementById('origem_' + insumoId);
             const qtd = document.getElementById('qtd_' + insumoId);
@@ -238,15 +494,14 @@
             
             if (checkbox.checked) {
                 row.classList.remove('row-disabled');
-                row.classList.add('row-selected');
+                row.classList.add(isExtra ? 'row-selected-extra' : 'row-selected');
                 origem.disabled = false;
                 qtd.disabled = false;
-                origem.style.border = "2px solid #f59e0b";
-                
+                origem.style.border = `2px solid ${isExtra ? '#8b5cf6' : '#f59e0b'}`;
                 atualizarMaximo(insumoId);
             } else {
                 row.classList.add('row-disabled');
-                row.classList.remove('row-selected');
+                row.classList.remove('row-selected', 'row-selected-extra');
                 origem.disabled = true;
                 qtd.disabled = true;
                 origem.style.border = "1px solid #cbd5e1";
@@ -264,16 +519,14 @@
             if(origemSelect.value) {
                 const selectedOption = origemSelect.options[origemSelect.selectedIndex];
                 const saldoNaOrigem = parseFloat(selectedOption.getAttribute('data-saldo'));
-                
                 const limiteReal = Math.min(pendente, saldoNaOrigem);
                 
                 qtdInput.max = limiteReal;
-                
                 if(parseFloat(qtdInput.value) > limiteReal) {
                     qtdInput.value = limiteReal;
                 }
                 
-                infoMax.innerHTML = `Limite de Envio: <strong style="color:#059669;">${limiteReal}</strong>`;
+                infoMax.innerHTML = `Limite Disp.: <strong style="color:#059669;">${limiteReal}</strong>`;
                 origemSelect.style.border = "1px solid #cbd5e1";
             } else {
                 infoMax.innerHTML = "";
@@ -285,7 +538,7 @@
             const valorDigitado = parseFloat(input.value);
             
             if(valorDigitado > maxPermitido) {
-                alert(`Atenção: Você não pode enviar ${valorDigitado}! O limite disponível nesta origem (ou o que falta enviar) é apenas ${maxPermitido}.`);
+                alert(`Atenção: Limite disponível nesta origem: ${maxPermitido}.`);
                 input.value = maxPermitido;
             }
         }
@@ -293,7 +546,7 @@
         function validarEnvio() {
             const checkboxes = document.querySelectorAll('.check-item:checked');
             if (checkboxes.length === 0) {
-                alert("Passo 1 Incompleto: Você precisa marcar a caixinha de pelo menos UM insumo na tabela para realizar o envio.");
+                alert("Passo 1 Incompleto: Selecione pelo menos UM insumo (padrão ou extra) para envio.");
                 return false;
             }
             
@@ -301,18 +554,31 @@
             checkboxes.forEach(chk => {
                 const id = chk.value;
                 const origem = document.getElementById('origem_' + id);
-                if(!origem.value) {
+                if(!origem || !origem.value) {
                     origensValidas = false;
-                    origem.style.border = "2px solid #ef4444";
+                    if(origem) origem.style.border = "2px solid #ef4444";
                 }
             });
 
             if(!origensValidas) {
-                alert("Passo 2 Incompleto: Você marcou insumos, mas esqueceu de escolher a 'Origem do Material' (De onde o estoque vai sair).");
+                alert("Passo 2 Incompleto: Escolha a 'Origem do Material' de todos os itens selecionados.");
                 return false;
             }
 
-            document.getElementById('btnSubmit').innerHTML = '<i class="fas fa-spinner fa-spin"></i> Registrando...';
+            const btn = document.getElementById('btnSubmit');
+            const textoOriginal = btn.innerHTML;
+            btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> A registar...';
+            
+            // Restaura o botão e limpa o formulário na aba principal
+            setTimeout(() => {
+                btn.innerHTML = textoOriginal;
+                checkboxes.forEach(chk => {
+                    chk.checked = false;
+                    toggleRow(chk, chk.value, chk.classList.contains('check-extra'));
+                });
+                document.getElementById('recebido_por').value = '';
+            }, 1500);
+
             return true;
         }
     </script>

@@ -6,6 +6,12 @@ class EnvioService {
         const processo = await ProcessoService.obterDetalhesComposicao(processoId);
         if (!processo) return null;
 
+        // Mapa auxiliar para saber o que faz parte da composição padrão
+        const isBOM = {};
+        if (processo.insumos_consolidados) {
+            processo.insumos_consolidados.forEach(i => isBOM[i.insumo_id] = true);
+        }
+
         // 1. Busca o que foi reservado para este processo
         const { data: reservas } = await supabase.schema('insumo').from('estoque_reservas').select('insumo_id, quantidade_reservada').eq('processo_id', processoId);
         const mapaReservas = {};
@@ -22,12 +28,15 @@ class EnvioService {
         const mapaProducao = {};
         if (movBanco) {
             movBanco.forEach(m => {
-                if (!mapaProducao[m.insumo_id]) mapaProducao[m.insumo_id] = 0;
-                mapaProducao[m.insumo_id] += Number(m.quantidade);
+                // Apenas agrupa o que for da composição para não bugar o calculo pendente
+                if (isBOM[m.insumo_id]) {
+                    if (!mapaProducao[m.insumo_id]) mapaProducao[m.insumo_id] = 0;
+                    mapaProducao[m.insumo_id] += Number(m.quantidade);
+                }
             });
         }
 
-        // 3. Monta a lista combinada para a tela de envio (CORRIGIDO AQUI)
+        // 3. Monta a lista combinada para a tela de envio
         processo.insumos_envio = processo.insumos_consolidados.map(ins => {
             const reservado = mapaReservas[ins.insumo_id] || 0;
             const enviado = mapaProducao[ins.insumo_id] || 0; 
@@ -59,7 +68,8 @@ class EnvioService {
                 return {
                     ...h,
                     insumo_nome: i.descricao,
-                    unidade: i.unidade
+                    unidade: i.unidade,
+                    is_extra: !isBOM[h.insumo_id] // Identifica se é um envio extra
                 };
             });
         } else {

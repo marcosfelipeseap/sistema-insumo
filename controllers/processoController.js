@@ -72,11 +72,24 @@ exports.detalhes = async (req, res) => {
         }
 
         const { data: movs } = await supabase.schema('insumo').from('movimentacoes').select('*').eq('processo_destino_id', processo.id).eq('tipo', 'SAIDA_PRODUCAO');
+        
+        // NOVO: Separador de Movimentações Padrões vs Extras
         const mapaEnviado = {};
+        const mapaExtras = {};
+        const isBOM = {}; // Verifica se o item faz parte da composição de custo
+        
+        const listaBase = processo.insumos_consolidados || [];
+        listaBase.forEach(ins => isBOM[ins.insumo_id] = true);
+
         if (movs) {
             movs.forEach(m => {
-                if (!mapaEnviado[m.insumo_id]) mapaEnviado[m.insumo_id] = 0;
-                mapaEnviado[m.insumo_id] += Number(m.quantidade);
+                if (isBOM[m.insumo_id]) {
+                    if (!mapaEnviado[m.insumo_id]) mapaEnviado[m.insumo_id] = 0;
+                    mapaEnviado[m.insumo_id] += Number(m.quantidade);
+                } else {
+                    if (!mapaExtras[m.insumo_id]) mapaExtras[m.insumo_id] = 0;
+                    mapaExtras[m.insumo_id] += Number(m.quantidade);
+                }
             });
         }
 
@@ -90,7 +103,7 @@ exports.detalhes = async (req, res) => {
             }
         });
 
-        const listaBase = processo.insumos_consolidados || [];
+        // Monta os completos padrão
         processo.insumos_completos = listaBase
             .filter(ins => {
                 const ref = ins.ref !== undefined ? ins.ref : mapaRef[ins.insumo_id];
@@ -111,6 +124,25 @@ exports.detalhes = async (req, res) => {
                     status_concluido: enviado >= necessario
                 };
             });
+
+        // Monta a lista Exclusiva dos Extras
+        const extraIds = Object.keys(mapaExtras);
+        let insumosExtras = [];
+        if (extraIds.length > 0) {
+            const { data: infosExtra } = await supabase.schema('orcamento').from('insumo').select('id, descricao, unidade').in('id', extraIds);
+            if (infosExtra) {
+                insumosExtras = extraIds.map(id => {
+                    const info = infosExtra.find(i => String(i.id) === String(id)) || {};
+                    return {
+                        insumo_id: id,
+                        descricao: info.descricao || 'Insumo Desconhecido',
+                        unidade: info.unidade || '-',
+                        qtd_enviada: mapaExtras[id]
+                    };
+                });
+            }
+        }
+        processo.insumos_extras = insumosExtras;
 
         res.render('processos/detalhes', { processo, user: req.session.user });
     } catch (error) {
