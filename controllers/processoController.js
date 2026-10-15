@@ -7,6 +7,7 @@ exports.index = async (req, res) => {
         const processos = await ProcessoService.listarTodos(req.session.user, 'aprovados');
         res.render('processos/index', { processos, user: res.locals.user || req.session.user });
     } catch (error) {
+        console.error(error);
         res.status(500).send('Erro ao carregar processos');
     }
 };
@@ -16,6 +17,7 @@ exports.solicitacoes = async (req, res) => {
         const processos = await ProcessoService.listarTodos(req.session.user, 'solicitacoes');
         res.render('processos/solicitacoes', { processos, user: res.locals.user || req.session.user });
     } catch (error) {
+        console.error(error);
         res.status(500).send('Erro ao carregar solicitações');
     }
 };
@@ -25,6 +27,7 @@ exports.novo = async (req, res) => {
         const produtos = await ProcessoService.buscarProdutosOrcamento();
         res.render('processos/novo', { produtos, user: res.locals.user || req.session.user });
     } catch (error) {
+        console.error(error);
         res.status(500).send('Erro ao carregar formulário');
     }
 };
@@ -37,7 +40,7 @@ exports.criar = async (req, res) => {
 
         let produtos = [];
         if (Array.isArray(produtos_ids)) {
-            for(let i=0; i<produtos_ids.length; i++) {
+            for (let i = 0; i < produtos_ids.length; i++) {
                 produtos.push({ produto_id: produtos_ids[i], quantidade: produtos_qtds[i] });
             }
         } else if (produtos_ids) {
@@ -47,6 +50,7 @@ exports.criar = async (req, res) => {
         await ProcessoService.criar(numero, nome, produtos, req.session.user);
         res.redirect('/processos');
     } catch (error) {
+        console.error(error);
         res.status(500).send('Erro ao criar processo');
     }
 };
@@ -69,14 +73,13 @@ exports.detalhes = async (req, res) => {
         const mapaReservas = {};
         if (reservas) {
             reservas.forEach(r => { 
-                if(!mapaReservas[r.insumo_id]) mapaReservas[r.insumo_id] = 0;
+                if (!mapaReservas[r.insumo_id]) mapaReservas[r.insumo_id] = 0;
                 mapaReservas[r.insumo_id] += Number(r.quantidade_reservada); 
             });
         }
 
         const { data: movs } = await supabase.schema('insumo').from('movimentacoes').select('*').eq('processo_destino_id', processo.id).eq('tipo', 'SAIDA_PRODUCAO');
         
-        // NOVO: Separador de Movimentações Padrões vs Extras
         const mapaEnviado = {};
         const mapaExtras = {};
         const isBOM = {}; 
@@ -109,7 +112,6 @@ exports.detalhes = async (req, res) => {
             }
         });
 
-        // Monta os completos padrão agregando valores se houver múltiplos IDs pro mesmo insumo
         processo.insumos_completos = listaBase
             .filter(ins => {
                 const ids = ins.insumo_ids || [ins.insumo_id];
@@ -130,7 +132,6 @@ exports.detalhes = async (req, res) => {
                 let separado = 0;
                 let enviado = 0;
                 
-                // Soma estoque e reservas de todos os IDs mesclados
                 ids.forEach(id => {
                     almoxarifado += (mapaEstoque[id] || 0);
                     separado += (mapaReservas[id] || 0);
@@ -149,7 +150,6 @@ exports.detalhes = async (req, res) => {
                 };
             });
 
-        // Monta a lista Exclusiva dos Extras
         const extraIds = Object.keys(mapaExtras);
         let insumosExtras = [];
         if (extraIds.length > 0) {
@@ -168,7 +168,13 @@ exports.detalhes = async (req, res) => {
         }
         processo.insumos_extras = insumosExtras;
 
-        res.render('processos/detalhes', { processo, user: req.session.user });
+        const user = res.locals.user || req.session.user;
+        let produtosOrcamento = [];
+        if (user && user.cargo === 'admin') {
+            produtosOrcamento = await ProcessoService.buscarProdutosOrcamento();
+        }
+
+        res.render('processos/detalhes', { processo, produtosOrcamento, user });
     } catch (error) {
         console.error(error);
         res.status(500).send('<h2 style="color:red;">ERRO REAL AO CARREGAR DETALHES:</h2><pre>' + error.stack + '</pre>');
@@ -203,7 +209,7 @@ exports.composicao = async (req, res) => {
             });
         }
         
-        res.render('processos/composicao', { processo, user: req.session.user });
+        res.render('processos/composicao', { processo, user: res.locals.user || req.session.user });
     } catch (error) {
         console.error(error);
         res.status(500).send('<h2 style="color:red;">ERRO REAL AO CARREGAR COMPOSIÇÃO:</h2><pre>' + error.stack + '</pre>');
@@ -212,30 +218,64 @@ exports.composicao = async (req, res) => {
 
 exports.editar = async (req, res) => {
     try {
+        const user = res.locals.user || req.session.user;
+        if (!user || user.cargo !== 'admin') {
+            return res.status(403).send('Acesso negado: apenas administradores podem editar processos.');
+        }
+
         const processo = await ProcessoService.buscarPorId(req.params.id);
-        res.render('processos/editar', { processo, user: req.session.user });
+        const produtos = await ProcessoService.buscarProdutosOrcamento();
+        res.render('processos/editar', { processo, produtos, user });
     } catch (error) {
+        console.error(error);
         res.status(500).send('Erro ao carregar edição');
     }
 };
 
 exports.atualizar = async (req, res) => {
     try {
-        let { numero, nome } = req.body;
+        const user = res.locals.user || req.session.user;
+        if (!user || user.cargo !== 'admin') {
+            return res.status(403).send('Acesso negado: apenas administradores podem alterar processos.');
+        }
+
+        let { numero, nome, produtos_ids, produtos_qtds, redirect_to } = req.body;
         if (numero) numero = String(numero).replace(/\./g, '');
         
-        await ProcessoService.atualizar(req.params.id, numero, nome);
+        let produtos = null;
+        if (produtos_ids !== undefined) {
+            produtos = [];
+            if (Array.isArray(produtos_ids)) {
+                for (let i = 0; i < produtos_ids.length; i++) {
+                    produtos.push({ produto_id: produtos_ids[i], quantidade: produtos_qtds[i] });
+                }
+            } else if (produtos_ids) {
+                produtos.push({ produto_id: produtos_ids, quantidade: produtos_qtds });
+            }
+        }
+
+        await ProcessoService.atualizar(req.params.id, numero, nome, produtos);
+        
+        if (redirect_to === 'detalhes') {
+            return res.redirect(`/processos/${req.params.id}/detalhes`);
+        }
         res.redirect('/processos');
     } catch (error) {
+        console.error(error);
         res.status(500).send('Erro ao atualizar');
     }
 };
 
 exports.deletar = async (req, res) => {
     try {
+        const user = res.locals.user || req.session.user;
+        if (!user || user.cargo !== 'admin') {
+            return res.status(403).send('Acesso negado');
+        }
         await ProcessoService.excluir(req.params.id);
         res.redirect('/processos');
     } catch (error) {
+        console.error(error);
         res.status(500).send('Erro ao deletar');
     }
 };
@@ -245,6 +285,7 @@ exports.aprovar = async (req, res) => {
         await ProcessoService.aprovar(req.params.id, req.session.user);
         res.redirect(`/processos/${req.params.id}/detalhes`);
     } catch (error) {
+        console.error(error);
         res.status(500).send('Erro ao aprovar processo');
     }
 };
@@ -255,6 +296,7 @@ exports.recusar = async (req, res) => {
         await ProcessoService.recusar(req.params.id, req.session.user, justificativa);
         res.redirect(`/processos/${req.params.id}/detalhes`);
     } catch (error) {
+        console.error(error);
         res.status(500).send('Erro ao recusar processo');
     }
 };

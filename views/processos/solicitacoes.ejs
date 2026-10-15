@@ -5,6 +5,13 @@
     <title>Solicitações - Controle de Insumos</title>
     <link rel="stylesheet" href="/css/style.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        .filter-bar { display: flex; gap: 15px; margin-bottom: 25px; flex-wrap: wrap; background: white; padding: 15px; border-radius: 8px; box-shadow: 0 1px 3px rgba(0,0,0,0.08); border: 1px solid #e2e8f0; }
+        .search-input { flex: 2; min-width: 250px; padding: 10px 15px; border: 1px solid #cbd5e1; border-radius: 6px; font-size: 0.95rem; outline: none; transition: 0.2s; }
+        .search-input:focus { border-color: #f59e0b; box-shadow: 0 0 0 3px rgba(245, 158, 11, 0.15); }
+        .select-filter { flex: 1; min-width: 200px; padding: 10px 15px; border: 1px solid #cbd5e1; border-radius: 6px; font-size: 0.95rem; outline: none; background: white; }
+        .oficina-badge { display: inline-block; background: #ede9fe; color: #6d28d9; padding: 4px 10px; border-radius: 999px; font-size: 0.8rem; font-weight: bold; }
+    </style>
 </head>
 <body>
     <%- include('../partials/sidebar') %>
@@ -13,20 +20,42 @@
         <div class="page-header">
             <div>
                 <h1>Solicitações Pendentes</h1>
-                <p style="color:#64748b; margin-top:5px;">Aguardando análise e aprovação.</p>
+                <p style="color:#64748b; margin-top:5px;">Aguardando análise e aprovação (Ordem Alfabética A-Z).</p>
             </div>
-            <!-- Apenas o Solicitante vê o botão de criar nova solicitação. O Admin não cria. -->
             <% if (user && user.cargo === 'solicitante') { %>
                 <a href="/processos/novo" class="btn btn-primary"><i class="fas fa-plus"></i> Nova Solicitação</a>
             <% } %>
         </div>
 
+        <% 
+            let todasOficinas = new Set();
+            processos.forEach(p => {
+                (p.oficinas || []).forEach(of => todasOficinas.add(of));
+            });
+            let listaOficinasUnicas = Array.from(todasOficinas).sort((a, b) => a.localeCompare(b, 'pt-BR'));
+        %>
+
+        <!-- BARRA DE PESQUISA E FILTRO DE OFICINA -->
+        <div class="filter-bar">
+            <input type="text" id="inputPesquisaSolicitacao" class="search-input" placeholder="🔍 Pesquisar solicitação por nome, nº do processo, oficina ou solicitante..." onkeyup="filtrarSolicitacoes()">
+            
+            <select id="selectFiltroOficina" class="select-filter" onchange="filtrarSolicitacoes()">
+                <option value="">🏭 Todas as Oficinas</option>
+                <% listaOficinasUnicas.forEach(oficina => { %>
+                    <option value="<%= oficina.toLowerCase() %>"><%= oficina %></option>
+                <% }) %>
+            </select>
+        </div>
+
         <div class="grid-cards">
-            <% processos.forEach(proc => { %>
-                <div class="card" style="<%= proc.status === 'Recusado' ? 'border-top: 4px solid #ef4444;' : 'border-top: 4px solid #f59e0b;' %>">
-                    <div style="display:flex; justify-content:space-between; margin-bottom:10px;">
+            <% processos.forEach(proc => { 
+                let textoBusca = `${proc.nome || ''} ${proc.numero || ''} ${proc.oficinas_texto || ''} ${proc.solicitante_nome || ''}`.toLowerCase();
+                let oficinasData = (proc.oficinas || []).map(o => o.toLowerCase()).join('|');
+            %>
+                <div class="card solicitacao-card" data-busca="<%= textoBusca %>" data-oficinas="<%= oficinasData %>" style="<%= proc.status === 'Recusado' ? 'border-top: 4px solid #ef4444;' : 'border-top: 4px solid #f59e0b;' %>">
+                    <div style="display:flex; justify-content:space-between; margin-bottom:10px; gap: 10px;">
                         <h3><%= proc.nome %></h3>
-                        <span style="font-weight:bold; color:#64748b;">#<%= proc.numero %></span>
+                        <span style="font-weight:bold; color:#64748b; white-space:nowrap;">#<%= proc.numero %></span>
                     </div>
                     
                     <% 
@@ -34,13 +63,16 @@
                         let icone = 'fa-clock';
                         if (proc.status === 'Recusado') { bgCor = '#ef4444'; icone = 'fa-times-circle'; }
                     %>
-                    <p>
+                    <div style="display:flex; flex-wrap:wrap; gap:6px; align-items:center;">
                         <span style="background: <%= bgCor %>; color: white; padding: 4px 8px; border-radius: 4px; font-size: 0.85rem; font-weight: bold;">
                             <i class="fas <%= icone %>"></i> <%= proc.status %>
                         </span>
-                    </p>
+                        <span class="oficina-badge">
+                            <i class="fas fa-industry"></i> <%= proc.oficinas_texto %>
+                        </span>
+                    </div>
                     
-                    <p style="margin-top:10px;"><i class="fas fa-box"></i> <%= proc.qtd_produtos %> Produtos Vinculados</p>
+                    <p style="margin-top:12px;"><i class="fas fa-box"></i> <%= proc.qtd_produtos %> Produtos Vinculados</p>
                     
                     <% if(proc.solicitante_nome) { %>
                         <p style="margin-top:5px; font-size: 0.9rem; color: #64748b;">
@@ -53,9 +85,9 @@
                         
                         <% if (user && user.cargo === 'admin') { %>
                             <div style="display: flex; gap: 5px;">
-                                <a href="/processos/<%= proc.id %>/editar" class="btn" style="background: #f59e0b; color: white; padding: 6px 10px; font-size: 0.85rem;"><i class="fas fa-edit"></i></a>
+                                <a href="/processos/<%= proc.id %>/editar" class="btn" style="background: #f59e0b; color: white; padding: 6px 10px; font-size: 0.85rem;" title="Editar Solicitação e Itens"><i class="fas fa-edit"></i></a>
                                 <form action="/processos/<%= proc.id %>/deletar" method="POST" style="display:inline;" onsubmit="return confirm('Tem certeza que deseja apagar esta solicitação?');">
-                                    <button type="submit" class="btn" style="background: #ef4444; color: white; padding: 6px 10px; font-size: 0.85rem;"><i class="fas fa-trash"></i></button>
+                                    <button type="submit" class="btn" style="background: #ef4444; color: white; padding: 6px 10px; font-size: 0.85rem;" title="Excluir Solicitação"><i class="fas fa-trash"></i></button>
                                 </form>
                             </div>
                         <% } %>
@@ -66,7 +98,37 @@
             <% if(processos.length === 0) { %>
                 <p style="grid-column: 1 / -1; text-align: center; color: #64748b; padding: 40px; background: white; border-radius: 8px;">Nenhuma solicitação pendente ou recusada encontrada.</p>
             <% } %>
+            <p id="msgNenhumResultado" style="display: none; grid-column: 1 / -1; text-align: center; color: #64748b; padding: 30px; background: white; border-radius: 8px;">Nenhuma solicitação encontrada para a pesquisa informada.</p>
         </div>
     </main>
+
+    <script>
+        function filtrarSolicitacoes() {
+            const termo = document.getElementById('inputPesquisaSolicitacao').value.toLowerCase().trim();
+            const oficinaFiltro = document.getElementById('selectFiltroOficina').value.toLowerCase().trim();
+            const cards = document.querySelectorAll('.solicitacao-card');
+            let visiveis = 0;
+
+            cards.forEach(card => {
+                const textoBusca = card.getAttribute('data-busca') || '';
+                const oficinasCard = (card.getAttribute('data-oficinas') || '').split('|');
+
+                const bateTexto = !termo || textoBusca.includes(termo);
+                const bateOficina = !oficinaFiltro || oficinasCard.includes(oficinaFiltro);
+
+                if (bateTexto && bateOficina) {
+                    card.style.display = '';
+                    visiveis++;
+                } else {
+                    card.style.display = 'none';
+                }
+            });
+
+            const msgVazio = document.getElementById('msgNenhumResultado');
+            if (msgVazio) {
+                msgVazio.style.display = (visiveis === 0 && cards.length > 0) ? 'block' : 'none';
+            }
+        }
+    </script>
 </body>
 </html>

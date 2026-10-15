@@ -6,9 +6,19 @@ const estoqueController = {
             let insumosGeral = await EstoqueService.listarEstoqueGeral();
             insumosGeral = insumosGeral.filter(i => i.ref && i.ref.trim() !== '');
 
+            const oficinas = await EstoqueService.listarOficinas();
             const { map, processos } = await EstoqueService.mapearUsoPorProcesso();
-            res.render('estoque/index', { insumosGeral, insumoProcessoMap: JSON.stringify(map), processosAtivos: processos, user: res.locals.user });
-        } catch (error) { res.status(500).send('Erro ao carregar almoxarifado geral'); }
+            res.render('estoque/index', { 
+                insumosGeral, 
+                oficinas,
+                insumoProcessoMap: JSON.stringify(map), 
+                processosAtivos: processos, 
+                user: res.locals.user 
+            });
+        } catch (error) { 
+            console.error(error);
+            res.status(500).send('Erro ao carregar almoxarifado geral'); 
+        }
     },
 
     historicoEstoque: async (req, res) => {
@@ -38,9 +48,20 @@ const estoqueController = {
         try {
             let insumosGeral = await EstoqueService.listarEstoqueGeral();
             insumosGeral = insumosGeral.filter(i => i.ref && i.ref.trim() !== '');
+            
+            const oficinas = await EstoqueService.listarOficinas();
             const { map, processos } = await EstoqueService.mapearUsoPorProcesso(); 
-            res.render('estoque/entrada', { insumosGeral, insumoProcessoMap: JSON.stringify(map), processosAtivos: processos, user: res.locals.user });
-        } catch (error) { res.status(500).send('Erro ao carregar tela'); }
+            res.render('estoque/entrada', { 
+                insumosGeral, 
+                oficinas,
+                insumoProcessoMap: JSON.stringify(map), 
+                processosAtivos: processos, 
+                user: res.locals.user 
+            });
+        } catch (error) { 
+            console.error(error);
+            res.status(500).send('Erro ao carregar tela'); 
+        }
     },
 
     registrarEntradaLote: async (req, res) => {
@@ -110,13 +131,11 @@ const estoqueController = {
             const usuario = res.locals.user ? res.locals.user.username : 'Sistema';
             const cargo = res.locals.user ? res.locals.user.cargo : null;
             
-            // Pega o caminho do arquivo gerado pelo Multer
             let documentoPath = null;
             if (req.file) {
                 documentoPath = '/uploads/ajustes/' + req.file.filename;
             }
 
-            // Trava de PDF obrigatório para todos exceto admin
             if (cargo !== 'admin' && !documentoPath) {
                 throw new Error("O upload de um documento PDF justificando a alteração é obrigatório para o seu nível de acesso.");
             }

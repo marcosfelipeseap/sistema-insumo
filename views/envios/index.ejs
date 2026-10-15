@@ -5,36 +5,188 @@
     <title>Envios para Produção</title>
     <link rel="stylesheet" href="/css/style.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        .oficinas-top-bar { background: white; border: 1px solid #e2e8f0; border-radius: 10px; padding: 15px 20px; margin-bottom: 15px; box-shadow: 0 2px 4px rgba(0,0,0,0.03); }
+        .oficinas-top-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; flex-wrap: wrap; gap: 10px; }
+        .oficinas-chips-container { display: flex; flex-wrap: wrap; gap: 8px; }
+        .oficina-chip-label { display: inline-flex; align-items: center; gap: 8px; padding: 7px 14px; background: #f8fafc; border: 1px solid #cbd5e1; border-radius: 999px; font-size: 0.88rem; font-weight: 600; color: #334155; cursor: pointer; user-select: none; transition: all 0.2s; }
+        .oficina-chip-label:hover { border-color: #f59e0b; background: #fffbeb; }
+        .oficina-chip-label input { display: none; }
+        .oficina-chip-label.active { background: #f59e0b; color: white; border-color: #d97706; box-shadow: 0 2px 6px rgba(245, 158, 11, 0.25); }
+
+        .search-bar-container { margin-bottom: 22px; }
+        .search-input-envio { width: 100%; padding: 12px 16px; border: 1px solid #cbd5e1; border-radius: 8px; font-size: 1rem; outline: none; background: white; transition: 0.2s; }
+        .search-input-envio:focus { border-color: #f59e0b; box-shadow: 0 0 0 3px rgba(245, 158, 11, 0.15); }
+
+        .oficina-badge { display: inline-block; background: #ede9fe; color: #6d28d9; padding: 3px 10px; border-radius: 999px; font-size: 0.78rem; font-weight: bold; }
+        
+        .produtos-box { margin-top: 12px; background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 6px; padding: 10px; max-height: 165px; overflow-y: auto; }
+        .produtos-box-title { font-size: 0.8rem; font-weight: bold; color: #475569; margin-bottom: 6px; text-transform: uppercase; display: flex; justify-content: space-between; }
+        .produto-mini-item { display: flex; justify-content: space-between; align-items: center; padding: 5px 0; border-bottom: 1px dashed #e2e8f0; font-size: 0.88rem; gap: 8px; }
+        .produto-mini-item:last-child { border-bottom: none; }
+        .qtd-pill { background: #fef3c7; color: #b45309; font-weight: bold; padding: 2px 8px; border-radius: 999px; font-size: 0.8rem; white-space: nowrap; }
+    </style>
 </head>
 <body>
     <%- include('../partials/sidebar') %>
     
     <main class="main-content">
-        <div class="page-header">
-            <h1>Envios para Produção</h1>
-            <p style="color:#64748b;">Selecione o processo que irá receber os insumos do almoxarifado.</p>
+        <div class="page-header" style="margin-bottom: 20px;">
+            <div>
+                <h1>Envios para Produção</h1>
+                <p style="color:#64748b;">Selecione o processo que irá receber os insumos do almoxarifado.</p>
+            </div>
+        </div>
+
+        <!-- FILTRO DE OFICINAS NO TOPO -->
+        <div class="oficinas-top-bar">
+            <div class="oficinas-top-header">
+                <span style="font-weight: bold; color: #0f172a; font-size: 0.95rem;">
+                    <i class="fas fa-industry" style="color: #f59e0b; margin-right: 6px;"></i> Filtrar Processos por Oficina (Selecione uma ou mais):
+                </span>
+                <button type="button" onclick="limparFiltroOficinas()" id="btnLimparOficinas" style="display: none; background: #f1f5f9; border: 1px solid #cbd5e1; color: #475569; padding: 4px 12px; border-radius: 6px; font-size: 0.8rem; font-weight: bold; cursor: pointer;">
+                    <i class="fas fa-times"></i> Mostrar Todas as Oficinas
+                </button>
+            </div>
+            <div class="oficinas-chips-container">
+                <% (typeof oficinas !== 'undefined' ? oficinas : []).forEach(of => { %>
+                    <label class="oficina-chip-label">
+                        <input type="checkbox" class="oficina-check" value="<%= of.id %>" onchange="onOficinaChange(this)">
+                        <i class="fas fa-check-circle" style="display: none; font-size: 0.85rem;"></i>
+                        <span><%= of.nome %></span>
+                    </label>
+                <% }) %>
+                <% if (typeof oficinas === 'undefined' || oficinas.length === 0) { %>
+                    <span style="color: #64748b; font-size: 0.9rem;">Nenhuma oficina cadastrada.</span>
+                <% } %>
+            </div>
+        </div>
+
+        <!-- BARRA DE PESQUISA -->
+        <div class="search-bar-container">
+            <input type="text" id="inputBuscaEnvio" class="search-input-envio" placeholder="🔍 Pesquisar por nome do processo, número, oficina ou item/produto solicitado..." onkeyup="filtrarCardsEnvio()">
         </div>
 
         <div class="grid-cards">
-            <% processos.forEach(proc => { %>
-                <div class="card" style="border-top-color: #f59e0b;">
-                    <div style="display:flex; justify-content:space-between; margin-bottom:10px;">
-                        <h3><%= proc.nome %></h3>
-                        <span style="font-weight:bold; color:#64748b;">#<%= proc.numero %></span>
+            <% processos.forEach(proc => { 
+                let listaItens = proc.produtos_lista || proc.produtos || [];
+                let nomesProdutos = listaItens.map(p => p.nome || p.produto_nome || '').join(' ');
+                let textoBusca = `${proc.nome || ''} ${proc.numero || ''} ${proc.oficinas_texto || ''} ${nomesProdutos}`.toLowerCase();
+            %>
+                <div class="card envio-card" 
+                     style="border-top-color: #f59e0b; display: flex; flex-direction: column; justify-content: space-between;"
+                     data-busca="<%= textoBusca %>"
+                     data-oficinas="<%= JSON.stringify(proc.oficina_ids || []) %>">
+                    
+                    <div>
+                        <div style="display:flex; justify-content:space-between; margin-bottom:10px; gap: 10px;">
+                            <h3><%= proc.nome %></h3>
+                            <span style="font-weight:bold; color:#64748b; white-space: nowrap;">#<%= proc.numero %></span>
+                        </div>
+                        
+                        <div style="display: flex; flex-wrap: wrap; gap: 6px; align-items: center; margin-bottom: 10px;">
+                            <span class="badge" style="background:#f1f5f9; color:#334155; padding: 4px 8px; border-radius: 4px; font-size: 0.82rem; font-weight: bold;">
+                                <%= proc.status %>
+                            </span>
+                            <span class="oficina-badge">
+                                <i class="fas fa-industry"></i> <%= proc.oficinas_texto || 'Sem Oficina' %>
+                            </span>
+                        </div>
+
+                        <!-- ITENS QUE FAZEM PARTE DO PROCESSO E QUANTIDADE SOLICITADA -->
+                        <div class="produtos-box">
+                            <div class="produtos-box-title">
+                                <span><i class="fas fa-boxes"></i> Itens do Processo (<%= listaItens.length %>)</span>
+                                <span>Qtd. Solicitada</span>
+                            </div>
+                            <% if (listaItens.length > 0) { %>
+                                <% listaItens.forEach(prod => { %>
+                                    <div class="produto-mini-item">
+                                        <span style="color: #1e293b; font-weight: 500;">
+                                            <%= prod.nome || prod.produto_nome %>
+                                            <small style="color: #6d28d9; display: block; font-size: 0.72rem;"><%= prod.oficina_nome || '' %></small>
+                                        </span>
+                                        <span class="qtd-pill">Qtd: <%= prod.quantidade || prod.qtd_solicitada %></span>
+                                    </div>
+                                <% }) %>
+                            <% } else { %>
+                                <div style="color: #94a3b8; font-size: 0.85rem; text-align: center; padding: 6px 0;">Nenhum item vinculado</div>
+                            <% } %>
+                        </div>
                     </div>
                     
-                    <p>Status Atual: 
-                        <span class="badge" style="background:#f1f5f9; color:#334155;"><%= proc.status %></span>
-                    </p>
-                    
-                    <div class="card-footer">
-                        <a href="/envios/<%= proc.id %>" class="btn" style="background:#f59e0b; color:white; width: 100%; text-align: center;">
+                    <div class="card-footer" style="margin-top: 15px;">
+                        <a href="/envios/<%= proc.id %>" class="btn" style="background:#f59e0b; color:white; width: 100%; text-align: center; font-weight: bold;">
                             <i class="fas fa-truck-loading"></i> Enviar Insumos
                         </a>
                     </div>
                 </div>
             <% }) %>
+
+            <% if (processos.length === 0) { %>
+                <p style="grid-column: 1 / -1; text-align: center; color: #64748b; padding: 30px; background: white; border-radius: 8px;">Nenhum processo ativo disponível para envio.</p>
+            <% } %>
+            <p id="msgSemProcessosEnvio" style="display: none; grid-column: 1 / -1; text-align: center; color: #64748b; padding: 30px; background: white; border-radius: 8px;">Nenhum processo encontrado para os filtros informados.</p>
         </div>
     </main>
+
+    <script>
+        function onOficinaChange(checkbox) {
+            const label = checkbox.closest('.oficina-chip-label');
+            const checkIcon = label.querySelector('i');
+            if (checkbox.checked) {
+                label.classList.add('active');
+                if (checkIcon) checkIcon.style.display = 'inline-block';
+            } else {
+                label.classList.remove('active');
+                if (checkIcon) checkIcon.style.display = 'none';
+            }
+            filtrarCardsEnvio();
+        }
+
+        function limparFiltroOficinas() {
+            document.querySelectorAll('.oficina-check').forEach(cb => {
+                cb.checked = false;
+                const label = cb.closest('.oficina-chip-label');
+                const checkIcon = label.querySelector('i');
+                label.classList.remove('active');
+                if (checkIcon) checkIcon.style.display = 'none';
+            });
+            filtrarCardsEnvio();
+        }
+
+        function filtrarCardsEnvio() {
+            const termo = document.getElementById('inputBuscaEnvio').value.toLowerCase().trim();
+            const oficinasSelecionadas = Array.from(document.querySelectorAll('.oficina-check:checked')).map(cb => String(cb.value));
+
+            const btnLimpar = document.getElementById('btnLimparOficinas');
+            if (btnLimpar) {
+                btnLimpar.style.display = oficinasSelecionadas.length > 0 ? 'inline-block' : 'none';
+            }
+
+            const cards = document.querySelectorAll('.envio-card');
+            let visiveis = 0;
+
+            cards.forEach(card => {
+                const texto = card.getAttribute('data-busca') || '';
+                const oficinasCard = JSON.parse(card.getAttribute('data-oficinas') || '[]').map(String);
+
+                const bateTexto = !termo || texto.includes(termo);
+                const bateOficina = oficinasSelecionadas.length === 0 || oficinasSelecionadas.some(id => oficinasCard.includes(id));
+
+                if (bateTexto && bateOficina) {
+                    card.style.display = 'flex';
+                    visiveis++;
+                } else {
+                    card.style.display = 'none';
+                }
+            });
+
+            const aviso = document.getElementById('msgSemProcessosEnvio');
+            if (aviso) {
+                aviso.style.display = (visiveis === 0 && cards.length > 0) ? 'block' : 'none';
+            }
+        }
+    </script>
 </body>
 </html>

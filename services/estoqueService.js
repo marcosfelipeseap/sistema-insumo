@@ -3,12 +3,46 @@ const ProcessoService = require('./processoService');
 
 class EstoqueService {
     
+    static async listarOficinas() {
+        const { data: oficinas, error } = await supabase.schema('orcamento').from('oficinas').select('id, nome').order('nome');
+        if (error) throw error;
+        return (oficinas || []).sort((a, b) => (a.nome || '').localeCompare(b.nome || '', 'pt-BR'));
+    }
+
     static async listarEstoqueGeral() {
         const { data: insumos, error } = await supabase.schema('orcamento').from('insumo').select('id, descricao, unidade, ref').order('descricao');
         if (error) throw error;
         
-        const { data: composicoesProd } = await supabase.schema('orcamento').from('produto_composicao').select('insumo_id');
-        const idsComProduto = new Set(composicoesProd ? composicoesProd.map(c => c.insumo_id) : []);
+        const { data: composicoesProd } = await supabase.schema('orcamento').from('produto_composicao').select('insumo_id, produto_id');
+        const { data: produtos } = await supabase.schema('orcamento').from('produto').select('id, grupo_id');
+        const { data: grupos } = await supabase.schema('orcamento').from('grupos').select('id, nome, oficina_id');
+        const { data: oficinas } = await supabase.schema('orcamento').from('oficinas').select('id, nome');
+
+        // Mapeamento rápido: Produto -> Grupo -> Oficina
+        const mapaProdGrupo = {};
+        if (produtos) produtos.forEach(p => { mapaProdGrupo[p.id] = p.grupo_id; });
+
+        const mapaGrupoOficina = {};
+        if (grupos) grupos.forEach(g => { mapaGrupoOficina[g.id] = g.oficina_id; });
+
+        const mapaOficinaNome = {};
+        if (oficinas) oficinas.forEach(o => { mapaOficinaNome[o.id] = o.nome; });
+
+        // Mapeia quais insumos possuem vínculo com produtos e a quais oficinas pertencem
+        const idsComProduto = new Set();
+        const insumoOficinasMap = {}; // insumo_id -> Set de oficina_id
+
+        if (composicoesProd) {
+            composicoesProd.forEach(c => {
+                idsComProduto.add(c.insumo_id);
+                const grupoId = mapaProdGrupo[c.produto_id];
+                const oficinaId = grupoId ? mapaGrupoOficina[grupoId] : null;
+                if (oficinaId) {
+                    if (!insumoOficinasMap[c.insumo_id]) insumoOficinasMap[c.insumo_id] = new Set();
+                    insumoOficinasMap[c.insumo_id].add(oficinaId);
+                }
+            });
+        }
         
         const { data: estoque } = await supabase.schema('insumo').from('estoque_geral').select('*');
         const mapaEstoque = {};
@@ -18,7 +52,7 @@ class EstoqueService {
         const mapaReservas = {};
         if (reservas) { 
             reservas.forEach(r => { 
-                if(!mapaReservas[r.insumo_id]) mapaReservas[r.insumo_id] = 0; 
+                if (!mapaReservas[r.insumo_id]) mapaReservas[r.insumo_id] = 0; 
                 mapaReservas[r.insumo_id] += Number(r.quantidade_reservada); 
             }); 
         }
@@ -29,11 +63,27 @@ class EstoqueService {
             
             const desc = ins.descricao.trim();
             if (!grupoMap[desc]) {
-                grupoMap[desc] = { id_representante: ins.id, descricao: desc, unidade: ins.unidade, ref: ins.ref, ids: [], qtd_sede: 0, qtd_complexo: 0, qtd_regional: 0, qtd_separada: 0, tem_ligacao: false };
+                grupoMap[desc] = { 
+                    id_representante: ins.id, 
+                    descricao: desc, 
+                    unidade: ins.unidade, 
+                    ref: ins.ref, 
+                    ids: [], 
+                    oficina_ids_set: new Set(),
+                    qtd_sede: 0, 
+                    qtd_complexo: 0, 
+                    qtd_regional: 0, 
+                    qtd_separada: 0, 
+                    tem_ligacao: false 
+                };
             }
             grupoMap[desc].ids.push(ins.id);
             if (idsComProduto.has(ins.id)) grupoMap[desc].tem_ligacao = true;
             
+            if (insumoOficinasMap[ins.id]) {
+                insumoOficinasMap[ins.id].forEach(ofId => grupoMap[desc].oficina_ids_set.add(ofId));
+            }
+
             const est = mapaEstoque[ins.id];
             if (est) { 
                 grupoMap[desc].qtd_sede += Number(est.qtd_sede || 0); 
@@ -44,7 +94,33 @@ class EstoqueService {
             if (res) { grupoMap[desc].qtd_separada += Number(res); }
         });
 
-        return Object.values(grupoMap).filter(item => item.tem_ligacao).map(item => ({ ...item, id: item.id_representante, total_geral: item.qtd_sede + item.qtd_complexo + item.qtd_regional })).sort((a, b) => a.descricao.localeCompare(b.descricao));
+        return Object.values(grupoMap)
+            .filter(item => item.tem_ligacao)
+            .map(item => {
+                const oficinaIds = Array.from(item.oficina_ids_set);
+                const oficinasNomes = oficinaIds
+                    .map(id => mapaOficinaNome[id])
+                    .filter(Boolean)
+                    .sort((a, b) => a.localeCompare(b, 'pt-BR'));
+
+                return { 
+                    id: item.id_representante,
+                    id_representante: item.id_representante,
+                    descricao: item.descricao,
+                    unidade: item.unidade,
+                    ref: item.ref,
+                    ids: item.ids,
+                    oficina_ids: oficinaIds,
+                    oficinas_nomes: oficinasNomes,
+                    oficinas_texto: oficinasNomes.length > 0 ? oficinasNomes.join(', ') : 'Sem Oficina',
+                    qtd_sede: item.qtd_sede,
+                    qtd_complexo: item.qtd_complexo,
+                    qtd_regional: item.qtd_regional,
+                    qtd_separada: item.qtd_separada,
+                    total_geral: item.qtd_sede + item.qtd_complexo + item.qtd_regional 
+                };
+            })
+            .sort((a, b) => a.descricao.localeCompare(b.descricao, 'pt-BR'));
     }
 
     static async obterHistoricoGeralEstoque(filtros = {}) {
@@ -244,14 +320,16 @@ class EstoqueService {
         const { data: processos } = await supabase.schema('insumo').from('processos').select('id, numero, nome, status');
         
         const map = {};
-        procProdutos.forEach(pp => {
-            const comps = comp.filter(c => c.produto_id === pp.produto_id);
-            comps.forEach(c => { 
-                if(!map[c.insumo_id]) map[c.insumo_id] = []; 
-                if(!map[c.insumo_id].includes(pp.processo_id)) map[c.insumo_id].push(pp.processo_id); 
+        if (procProdutos && comp) {
+            procProdutos.forEach(pp => {
+                const comps = comp.filter(c => c.produto_id === pp.produto_id);
+                comps.forEach(c => { 
+                    if (!map[c.insumo_id]) map[c.insumo_id] = []; 
+                    if (!map[c.insumo_id].includes(pp.processo_id)) map[c.insumo_id].push(pp.processo_id); 
+                });
             });
-        });
-        return { map, processos };
+        }
+        return { map, processos: processos || [] };
     }
 
     static async registrarEntradaGeral(insumoId, local, quantidade, usuario) {
@@ -415,7 +493,7 @@ class EstoqueService {
             const { data: processosReserva } = await supabase.schema('insumo').from('processos').select('id, numero, nome, status').in('id', procIds);
             let sepMap = {};
             reservas.forEach(r => {
-                if(!sepMap[r.processo_id]) sepMap[r.processo_id] = { id: r.id, qtd: 0 };
+                if (!sepMap[r.processo_id]) sepMap[r.processo_id] = { id: r.id, qtd: 0 };
                 sepMap[r.processo_id].qtd += Number(r.quantidade_reservada);
             });
             if (processosReserva) { 
@@ -436,12 +514,21 @@ class EstoqueService {
             const produtoIds = [...new Set(composicoes.map(c => c.produto_id))];
             const { data: produtos } = await supabase.schema('orcamento').from('produto').select('id, nome, grupo_id').in('id', produtoIds);
             const grupoIds = produtos ? [...new Set(produtos.map(p => p.grupo_id).filter(id => id))] : [];
-            const { data: grupos } = grupoIds.length > 0 ? await supabase.schema('orcamento').from('grupos').select('id, nome').in('id', grupoIds) : { data: [] };
+            const { data: grupos } = grupoIds.length > 0 ? await supabase.schema('orcamento').from('grupos').select('id, nome, oficina_id').in('id', grupoIds) : { data: [] };
+            const oficinaIds = grupos ? [...new Set(grupos.map(g => g.oficina_id).filter(id => id))] : [];
+            const { data: oficinas } = oficinaIds.length > 0 ? await supabase.schema('orcamento').from('oficinas').select('id, nome').in('id', oficinaIds) : { data: [] };
 
             insumoBase.produtos_orcamento = composicoes.map(comp => {
                 const prod = produtos ? produtos.find(p => p.id === comp.produto_id) : null;
                 const grupo = prod && grupos ? grupos.find(g => g.id === prod.grupo_id) : null;
-                return { produto_id: comp.produto_id, produto_nome: prod ? prod.nome : 'Desconhecido', grupo_nome: grupo ? grupo.nome : 'Sem Grupo', indice: Number(comp.indice) };
+                const oficina = grupo && oficinas ? oficinas.find(o => o.id === grupo.oficina_id) : null;
+                return { 
+                    produto_id: comp.produto_id, 
+                    produto_nome: prod ? prod.nome : 'Desconhecido', 
+                    grupo_nome: grupo ? grupo.nome : 'Sem Grupo', 
+                    oficina_nome: oficina ? oficina.nome : 'Sem Oficina',
+                    indice: Number(comp.indice) 
+                };
             });
 
             const { data: procProdutos } = await supabase.schema('insumo').from('processo_produtos').select('processo_id, produto_id, quantidade').in('produto_id', produtoIds);
@@ -565,7 +652,6 @@ class EstoqueService {
             let origem = String(envio.origem || '').trim().toUpperCase();
             let insumoId = envio.insumo_id; 
 
-            // 1. Localiza o insumo e todos os seus aliases por descrição
             const { data: insumoBase, error: errInsumo } = await supabase.schema('orcamento').from('insumo').select('id, descricao').eq('id', insumoId).single();
             if (errInsumo || !insumoBase) throw new Error(`Insumo ID ${insumoId} não localizado no catálogo.`);
 
@@ -602,9 +688,6 @@ class EstoqueService {
                     }
                 }
             } else {
-                // ==============================================================
-                // DESCONTO DIRETO DO ESTOQUE GERAL (PARA COMPOSIÇÃO E EXTRAS)
-                // ==============================================================
                 const { data: estoqueList, error: errEstoque } = await supabase.schema('insumo').from('estoque_geral').select('*').in('insumo_id', allIds);
                 if (errEstoque) throw new Error(`Erro ao buscar saldo geral: ${errEstoque.message}`);
 
@@ -617,7 +700,6 @@ class EstoqueService {
                     });
                 }
 
-                // Normaliza a origem
                 let campoAlvo = null;
                 if (origem === 'GERAL_SEDE' || origem === 'SEDE') campoAlvo = 'qtd_sede';
                 else if (origem === 'GERAL_COMPLEXO' || origem === 'COMPLEXO') campoAlvo = 'qtd_complexo';
@@ -639,10 +721,8 @@ class EstoqueService {
                     novoReg = sumReg - quantidade;
                 }
 
-                // A PK é o insumo_id. Mantém o primeiro encontrado ou usa o insumoId atual
                 const targetInsumoId = (estoqueList && estoqueList.length > 0) ? estoqueList[0].insumo_id : insumoId;
 
-                // upsert com onConflict no campo insumo_id evita o duplicate key na PK
                 const { error: upsertErr } = await supabase.schema('insumo').from('estoque_geral').upsert({
                     insumo_id: targetInsumoId,
                     qtd_sede: novoSede,
@@ -653,7 +733,6 @@ class EstoqueService {
 
                 if (upsertErr) throw new Error(`Falha ao debitar saldo geral: ${upsertErr.message}`);
 
-                // Se houver registros em outros aliases, zera para não duplicar contagem
                 const outrosInsumoIds = allIds.filter(id => String(id) !== String(targetInsumoId));
                 if (outrosInsumoIds.length > 0) {
                     await supabase.schema('insumo').from('estoque_geral').update({
@@ -665,7 +744,6 @@ class EstoqueService {
                 }
             }
 
-            // Descrição da Origem no Extrato
             let nomeOrigemFormatado = 'Estoque Geral';
             if (origem === 'RESERVA') nomeOrigemFormatado = 'Reserva do Processo';
             else if (origem.includes('SEDE')) nomeOrigemFormatado = 'Almoxarifado Sede';
@@ -683,7 +761,6 @@ class EstoqueService {
             });
         }
 
-        // Salva a movimentação de saída
         if (insercoesMov.length > 0) {
             const { error: movErr } = await supabase.schema('insumo').from('movimentacoes').insert(insercoesMov);
             if (movErr) throw new Error(`Erro ao gravar movimentação de saída: ${movErr.message}`);
@@ -723,7 +800,6 @@ class EstoqueService {
         const processoId = movs[0].processo_destino_id;
         const { data: proc } = await supabase.schema('insumo').from('processos').select('numero, nome').eq('id', processoId).single();
         
-        // Carrega catálogo global de insumos para cruzar qualquer ID (seja alias ou principal)
         const { data: todosInsumos } = await supabase.schema('orcamento').from('insumo').select('id, descricao, unidade, ref');
         const insumoMap = {};
         if (todosInsumos) {

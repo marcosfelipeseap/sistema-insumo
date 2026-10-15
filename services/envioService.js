@@ -9,14 +9,20 @@ class EnvioService {
         // Mapa auxiliar para saber o que faz parte da composição padrão
         const isBOM = {};
         if (processo.insumos_consolidados) {
-            processo.insumos_consolidados.forEach(i => isBOM[i.insumo_id] = true);
+            processo.insumos_consolidados.forEach(i => {
+                const ids = i.insumo_ids || [i.insumo_id];
+                ids.forEach(id => isBOM[id] = true);
+            });
         }
 
         // 1. Busca o que foi reservado para este processo
         const { data: reservas } = await supabase.schema('insumo').from('estoque_reservas').select('insumo_id, quantidade_reservada').eq('processo_id', processoId);
         const mapaReservas = {};
         if (reservas) {
-            reservas.forEach(r => { mapaReservas[r.insumo_id] = Number(r.quantidade_reservada); });
+            reservas.forEach(r => { 
+                if (!mapaReservas[r.insumo_id]) mapaReservas[r.insumo_id] = 0;
+                mapaReservas[r.insumo_id] += Number(r.quantidade_reservada); 
+            });
         }
 
         // 2. Busca o que já foi enviado para a produção deste processo
@@ -28,7 +34,6 @@ class EnvioService {
         const mapaProducao = {};
         if (movBanco) {
             movBanco.forEach(m => {
-                // Apenas agrupa o que for da composição para não bugar o calculo pendente
                 if (isBOM[m.insumo_id]) {
                     if (!mapaProducao[m.insumo_id]) mapaProducao[m.insumo_id] = 0;
                     mapaProducao[m.insumo_id] += Number(m.quantidade);
@@ -38,8 +43,14 @@ class EnvioService {
 
         // 3. Monta a lista combinada para a tela de envio
         processo.insumos_envio = processo.insumos_consolidados.map(ins => {
-            const reservado = mapaReservas[ins.insumo_id] || 0;
-            const enviado = mapaProducao[ins.insumo_id] || 0; 
+            const ids = ins.insumo_ids || [ins.insumo_id];
+            let reservado = 0;
+            let enviado = 0;
+            ids.forEach(id => {
+                reservado += (mapaReservas[id] || 0);
+                enviado += (mapaProducao[id] || 0);
+            });
+
             const disponivelParaEnviar = reservado - enviado;
             const pendenteProducao = ins.qtd_arredondada - enviado;
 
@@ -64,12 +75,12 @@ class EnvioService {
             const { data: insumos } = await supabase.schema('orcamento').from('insumo').select('id, descricao, unidade').in('id', insumoIds);
 
             processo.historico = historicoBanco.map(h => {
-                const i = insumos.find(i => i.id === h.insumo_id) || {};
+                const i = (insumos || []).find(ins => ins.id === h.insumo_id) || {};
                 return {
                     ...h,
                     insumo_nome: i.descricao,
                     unidade: i.unidade,
-                    is_extra: !isBOM[h.insumo_id] // Identifica se é um envio extra
+                    is_extra: !isBOM[h.insumo_id]
                 };
             });
         } else {
@@ -97,4 +108,5 @@ class EnvioService {
         }
     }
 }
+
 module.exports = EnvioService;

@@ -15,7 +15,7 @@
         .progress-bar-bg { background-color: #e2e8f0; border-radius: 999px; height: 10px; width: 100%; overflow: hidden; margin-top: 5px; }
         .progress-bar-fill { height: 100%; background-color: #10b981; }
         .product-list { list-style: none; padding: 0; margin: 0; }
-        .product-item { padding: 12px 15px; border-bottom: 1px solid #e2e8f0; display: flex; justify-content: space-between; align-items: center; transition: background 0.2s; }
+        .product-item { padding: 12px 15px; border-bottom: 1px solid #e2e8f0; display: flex; justify-content: space-between; align-items: center; transition: background 0.2s; gap: 10px; }
         .product-item:hover { background: #f8fafc; }
         .product-item:last-child { border-bottom: none; }
         
@@ -24,6 +24,15 @@
         .accordion-body-prod { display: block; margin-top: 15px; }
         .search-prod-input { width: 100%; padding: 10px 15px; border: 1px solid #cbd5e1; border-radius: 6px; margin-bottom: 15px; outline: none; font-size: 0.95rem; background: #f8fafc; transition: 0.3s; }
         .search-prod-input:focus { border-color: #8b5cf6; background: #fff; box-shadow: 0 0 0 3px rgba(139, 92, 246, 0.15); }
+        
+        .oficina-tag { display: inline-block; background: #ede9fe; color: #6d28d9; padding: 2px 8px; border-radius: 999px; font-size: 0.75rem; font-weight: bold; margin-left: 6px; }
+        
+        /* Modal de Edição Rápida (Admin) */
+        .modal-overlay { display: none; position: fixed; inset: 0; background: rgba(15, 23, 42, 0.6); z-index: 1000; justify-content: center; align-items: center; padding: 20px; }
+        .modal-box { background: white; width: 100%; max-width: 750px; border-radius: 10px; padding: 25px; max-height: 90vh; overflow-y: auto; box-shadow: 0 10px 25px rgba(0,0,0,0.2); }
+        .produto-row-modal { display: flex; gap: 10px; margin-bottom: 12px; align-items: center; background: #f8fafc; padding: 10px; border-radius: 6px; border: 1px solid #e2e8f0; }
+        .produto-row-modal select { flex: 3; padding: 8px; border: 1px solid #cbd5e1; border-radius: 6px; }
+        .produto-row-modal input { flex: 1; padding: 8px; border: 1px solid #cbd5e1; border-radius: 6px; }
     </style>
 </head>
 <body>
@@ -34,9 +43,18 @@
         <div class="page-header" style="margin-bottom: 20px;">
             <div>
                 <h1><%= processo.nome %></h1>
-                <p style="color: #64748b; font-size: 1.1rem; margin-top: 5px;">Processo Nº: <%= processo.numero %> | Status: <strong><%= processo.status %></strong></p>
+                <p style="color: #64748b; font-size: 1.05rem; margin-top: 5px;">
+                    Processo Nº: <strong><%= processo.numero %></strong> | 
+                    Status: <strong><%= processo.status %></strong> | 
+                    Oficina(s): <span style="color: #6d28d9; font-weight: bold;"><i class="fas fa-industry"></i> <%= processo.oficinas_texto %></span>
+                </p>
             </div>
-            <div style="display: flex; gap: 10px;">
+            <div style="display: flex; gap: 10px; flex-wrap: wrap;">
+                <% if (user && user.cargo === 'admin') { %>
+                    <button type="button" onclick="abrirModalItens()" class="btn" style="background: #f59e0b; color: white;">
+                        <i class="fas fa-edit"></i> Alterar / Adicionar Itens
+                    </button>
+                <% } %>
                 <a href="/processos/<%= processo.id %>/composicao" class="btn btn-primary" style="background: #3b82f6;">
                     <i class="fas fa-list-alt"></i> Composição de Insumo
                 </a>
@@ -83,13 +101,12 @@
             let totalConcluidos = listaInsumos.filter(i => i.status_concluido).length;
             let percentualGeral = totalInsumos > 0 ? Math.round((totalConcluidos / totalInsumos) * 100) : 0;
             
-            // MAPEAMENTO LÓGICO: Qual insumo pertence a qual produto?
             let mapInsumoProd = {};
             (processo.produtos || []).forEach(prod => {
                 (prod.itens || []).forEach(item => {
                     let idIns = item.insumo ? item.insumo.id : item.insumo_id;
-                    if(idIns) {
-                        if(!mapInsumoProd[idIns]) mapInsumoProd[idIns] = [];
+                    if (idIns) {
+                        if (!mapInsumoProd[idIns]) mapInsumoProd[idIns] = [];
                         mapInsumoProd[idIns].push(String(prod.produto_id));
                     }
                 });
@@ -101,17 +118,22 @@
             <!-- LISTA DE PRODUTOS DO PROCESSO COM SANFONA E FILTRO -->
             <div class="card" style="border-top-color: #8b5cf6;">
                 
-                <!-- Cabeçalho clicável (Sanfona) -->
-                <div class="accordion-header-prod" onclick="toggleProdutos()" title="Clique para expandir ou recolher os produtos">
-                    <h3 style="margin: 0; transition: color 0.2s;">Produtos a Fabricar (<%= (processo.produtos || []).length %>)</h3>
-                    <i class="fas fa-chevron-up" id="iconProdutos" style="color: #8b5cf6; font-size: 1.2rem; transition: transform 0.3s;"></i>
+                <div style="display: flex; justify-content: space-between; align-items: center;">
+                    <div class="accordion-header-prod" onclick="toggleProdutos()" title="Clique para expandir ou recolher os produtos" style="flex: 1;">
+                        <h3 style="margin: 0; transition: color 0.2s;">Produtos a Fabricar (<%= (processo.produtos || []).length %>)</h3>
+                        <i class="fas fa-chevron-up" id="iconProdutos" style="color: #8b5cf6; font-size: 1.2rem; transition: transform 0.3s; margin-right: 10px;"></i>
+                    </div>
+                    <% if (user && user.cargo === 'admin') { %>
+                        <button type="button" onclick="abrirModalItens()" class="btn" style="background: #ede9fe; color: #6d28d9; padding: 5px 10px; font-size: 0.8rem;" title="Gerenciar itens do processo">
+                            <i class="fas fa-plus"></i> / <i class="fas fa-pen"></i> Itens
+                        </button>
+                    <% } %>
                 </div>
                 
-                <!-- Corpo expansível -->
                 <div id="bodyProdutos" class="accordion-body-prod">
                     
                     <% if((processo.produtos || []).length > 0) { %>
-                        <input type="text" id="filtroProdutos" class="search-prod-input" placeholder="🔍 Buscar produto pelo nome..." onkeyup="filtrarProdutosNaLista()">
+                        <input type="text" id="filtroProdutos" class="search-prod-input" placeholder="🔍 Buscar produto ou oficina..." onkeyup="filtrarProdutosNaLista()">
                         <p style="font-size: 0.8rem; color: #64748b; margin-bottom: 10px; margin-top: -5px;">
                             <i class="fas fa-info-circle"></i> Selecione os produtos abaixo para filtrar a tabela de insumos.
                         </p>
@@ -119,10 +141,14 @@
 
                     <ul class="product-list" id="listaProdutos" style="max-height: 250px; overflow-y: auto; border: 1px solid #e2e8f0; border-radius: 6px;">
                         <% (processo.produtos || []).forEach(prod => { %>
-                            <li class="product-item" data-nome="<%= prod.produto_nome.toLowerCase() %>">
+                            <li class="product-item" data-nome="<%= (prod.produto_nome + ' ' + prod.oficina_nome + ' ' + prod.grupo_nome).toLowerCase() %>">
                                 <label style="display: flex; align-items: center; cursor: pointer; width: 100%; margin: 0; gap: 10px;">
                                     <input type="checkbox" class="filter-prod-check" value="<%= prod.produto_id %>" onchange="filtrarInsumosNaTabela()" style="transform: scale(1.3); accent-color: #8b5cf6;">
-                                    <span><i class="fas fa-box" style="color: #8b5cf6;"></i> <strong><%= prod.produto_nome %></strong></span>
+                                    <div>
+                                        <i class="fas fa-box" style="color: #8b5cf6;"></i> <strong><%= prod.produto_nome %></strong>
+                                        <span class="oficina-tag"><i class="fas fa-industry"></i> <%= prod.oficina_nome %></span>
+                                        <div style="font-size: 0.78rem; color: #64748b; margin-top: 2px;">Grupo: <%= prod.grupo_nome %></div>
+                                    </div>
                                 </label>
                                 <span class="badge" style="background: #f1f5f9; color: #0f172a; font-size: 0.9rem; padding: 4px 8px; border-radius: 6px; white-space: nowrap;">Qtd: <%= prod.qtd_solicitada %></span>
                             </li>
@@ -166,13 +192,12 @@
                 <tbody>
                     <% listaInsumos.forEach(ins => { 
                         let percentualItem = ins.qtd_arredondada > 0 ? Math.round((ins.qtd_enviada / ins.qtd_arredondada) * 100) : 0;
-                        if(percentualItem > 100) percentualItem = 100;
+                        if (percentualItem > 100) percentualItem = 100;
                         
-                        // Lógica avançada: Agrega os produtos de TODOS os IDs mesclados para o filtro funcionar
                         let prodsRelacionados = [];
                         let idsArray = ins.insumo_ids || [ins.insumo_id];
                         idsArray.forEach(id => {
-                            if(mapInsumoProd[id]) {
+                            if (mapInsumoProd[id]) {
                                 prodsRelacionados = prodsRelacionados.concat(mapInsumoProd[id]);
                             }
                         });
@@ -231,6 +256,61 @@
         <% } %>
 
     </main>
+
+    <!-- MODAL EXCLUSIVO PARA ADMIN ALTERAR / ADICIONAR ITENS DO PROCESSO -->
+    <% if (user && user.cargo === 'admin') { %>
+        <div id="modalEditarItens" class="modal-overlay">
+            <div class="modal-box">
+                <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #e2e8f0; padding-bottom: 12px; margin-bottom: 20px;">
+                    <h2 style="margin: 0; font-size: 1.3rem;"><i class="fas fa-boxes" style="color: #f59e0b;"></i> Gerenciar Produtos do Processo</h2>
+                    <button type="button" onclick="fecharModalItens()" style="background: none; border: none; font-size: 1.4rem; cursor: pointer; color: #64748b;">&times;</button>
+                </div>
+
+                <form action="/processos/<%= processo.id %>/atualizar" method="POST">
+                    <input type="hidden" name="redirect_to" value="detalhes">
+                    <input type="hidden" name="numero" value="<%= processo.numero %>">
+                    <input type="hidden" name="nome" value="<%= processo.nome %>">
+
+                    <div id="modal-produtos-container">
+                        <% if (processo.produtos && processo.produtos.length > 0) { %>
+                            <% processo.produtos.forEach(item => { %>
+                                <div class="produto-row-modal">
+                                    <select name="produtos_ids[]" required>
+                                        <option value="">Selecione um Produto...</option>
+                                        <% (produtosOrcamento || []).forEach(p => { %>
+                                            <option value="<%= p.id %>" <%= String(p.id) === String(item.produto_id) ? 'selected' : '' %>><%= p.nome_combo %></option>
+                                        <% }) %>
+                                    </select>
+                                    <input type="number" name="produtos_qtds[]" placeholder="Qtd" min="1" value="<%= item.qtd_solicitada %>" required>
+                                    <button type="button" class="btn btn-remover-modal" style="background:#ef4444; color:white; padding:8px 12px;"><i class="fas fa-trash"></i></button>
+                                </div>
+                            <% }) %>
+                        <% } else { %>
+                            <div class="produto-row-modal">
+                                <select name="produtos_ids[]" required>
+                                    <option value="">Selecione um Produto...</option>
+                                    <% (produtosOrcamento || []).forEach(p => { %>
+                                        <option value="<%= p.id %>"><%= p.nome_combo %></option>
+                                    <% }) %>
+                                </select>
+                                <input type="number" name="produtos_qtds[]" placeholder="Qtd" min="1" required>
+                                <button type="button" class="btn btn-remover-modal" style="background:#ef4444; color:white; padding:8px 12px;"><i class="fas fa-trash"></i></button>
+                            </div>
+                        <% } %>
+                    </div>
+
+                    <button type="button" id="btn-add-produto-modal" class="btn" style="background:#10b981; color:white; margin-top: 5px; margin-bottom: 20px;">
+                        <i class="fas fa-plus"></i> Adicionar Produto
+                    </button>
+
+                    <div style="display: flex; justify-content: flex-end; gap: 10px; border-top: 1px solid #e2e8f0; padding-top: 15px;">
+                        <button type="button" onclick="fecharModalItens()" class="btn" style="background: #e2e8f0; color: #334155;">Cancelar</button>
+                        <button type="submit" class="btn btn-primary"><i class="fas fa-save"></i> Salvar Alterações</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    <% } %>
 
     <!-- Scripts de Interatividade -->
     <script>
@@ -295,7 +375,42 @@
                 avisoVazio.style.display = algumaLinhaVisivel ? 'none' : 'table-row';
             }
         }
+
+        // Funções do Modal Admin
+        function abrirModalItens() {
+            const modal = document.getElementById('modalEditarItens');
+            if (modal) modal.style.display = 'flex';
+        }
+
+        function fecharModalItens() {
+            const modal = document.getElementById('modalEditarItens');
+            if (modal) modal.style.display = 'none';
+        }
+
+        function vincularRemoverModal(btn) {
+            btn.addEventListener('click', function(e) {
+                const container = document.getElementById('modal-produtos-container');
+                if (container.children.length > 1) {
+                    e.target.closest('.produto-row-modal').remove();
+                } else {
+                    alert('O processo deve possuir pelo menos um produto.');
+                }
+            });
+        }
+
+        document.querySelectorAll('.btn-remover-modal').forEach(btn => vincularRemoverModal(btn));
+
+        const btnAddModal = document.getElementById('btn-add-produto-modal');
+        if (btnAddModal) {
+            btnAddModal.addEventListener('click', function() {
+                const container = document.getElementById('modal-produtos-container');
+                const row = container.children[0].cloneNode(true);
+                row.querySelector('select').value = '';
+                row.querySelector('input').value = '';
+                vincularRemoverModal(row.querySelector('.btn-remover-modal'));
+                container.appendChild(row);
+            });
+        }
     </script>
-    
 </body>
 </html>

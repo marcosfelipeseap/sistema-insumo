@@ -18,6 +18,16 @@
         .link-insumo { color: #2563eb; text-decoration: none; font-weight: 600; display: inline-flex; align-items: center; gap: 8px; }
         .link-insumo:hover { text-decoration: underline; }
 
+        /* Barra de Oficinas no Topo */
+        .oficinas-top-bar { background: white; border: 1px solid #e2e8f0; border-radius: 10px; padding: 15px 20px; margin-bottom: 18px; box-shadow: 0 2px 4px rgba(0,0,0,0.03); }
+        .oficinas-top-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; flex-wrap: wrap; gap: 10px; }
+        .oficinas-chips-container { display: flex; flex-wrap: wrap; gap: 8px; }
+        .oficina-chip-label { display: inline-flex; align-items: center; gap: 8px; padding: 7px 14px; background: #f8fafc; border: 1px solid #cbd5e1; border-radius: 999px; font-size: 0.88rem; font-weight: 600; color: #334155; cursor: pointer; user-select: none; transition: all 0.2s; }
+        .oficina-chip-label:hover { border-color: #8b5cf6; background: #f5f3ff; }
+        .oficina-chip-label input { display: none; }
+        .oficina-chip-label.active { background: #7c3aed; color: white; border-color: #6d28d9; box-shadow: 0 2px 6px rgba(124, 58, 237, 0.25); }
+        .oficina-tag-mini { display: inline-block; background: #ede9fe; color: #6d28d9; padding: 2px 8px; border-radius: 999px; font-size: 0.72rem; font-weight: bold; margin-top: 4px; margin-right: 4px; }
+
         .filter-panel { background: #f8fafc; border-radius: 8px; margin-bottom: 20px; border: 1px solid #cbd5e1; }
         .accordion-header { cursor: pointer; padding: 15px 20px; display: flex; justify-content: space-between; align-items: center; font-weight: bold; color: #0f172a; transition: background 0.2s; border-radius: 8px; }
         .accordion-header:hover { background: #f1f5f9; }
@@ -44,7 +54,6 @@
                 <p style="color:#64748b; font-size: 1.05rem; margin-top: 5px;">Controle unificado de insumos da Sede, Complexo e Regional.</p>
             </div>
             <div style="display: flex; gap: 12px;">
-                <!-- Botão liberado para todos -->
                 <a href="/estoque/entrada/nova" class="btn btn-primary" style="background: #10b981; padding: 10px 20px;">
                     <i class="fas fa-plus-circle"></i> Registrar Nova Entrada
                 </a>
@@ -52,7 +61,31 @@
             </div>
         </div>
 
-        <input type="text" id="globalSearch" class="search-main" placeholder="🔍 Pesquisa geral por nome do insumo ou referência (Ref)...">
+        <!-- FILTRO DE OFICINAS NO TOPO -->
+        <div class="oficinas-top-bar">
+            <div class="oficinas-top-header">
+                <span style="font-weight: bold; color: #0f172a; font-size: 0.95rem;">
+                    <i class="fas fa-industry" style="color: #7c3aed; margin-right: 6px;"></i> Filtrar por Oficina (Selecione uma ou mais):
+                </span>
+                <button type="button" onclick="limparFiltroOficinas()" id="btnLimparOficinas" style="display: none; background: #f1f5f9; border: 1px solid #cbd5e1; color: #475569; padding: 4px 12px; border-radius: 6px; font-size: 0.8rem; font-weight: bold; cursor: pointer;">
+                    <i class="fas fa-times"></i> Mostrar Todas as Oficinas
+                </button>
+            </div>
+            <div class="oficinas-chips-container">
+                <% (oficinas || []).forEach(of => { %>
+                    <label class="oficina-chip-label">
+                        <input type="checkbox" class="oficina-check" value="<%= of.id %>" onchange="onOficinaChange(this)">
+                        <i class="fas fa-check-circle" style="display: none; font-size: 0.85rem;"></i>
+                        <span><%= of.nome %></span>
+                    </label>
+                <% }) %>
+                <% if (!oficinas || oficinas.length === 0) { %>
+                    <span style="color: #64748b; font-size: 0.9rem;">Nenhuma oficina cadastrada.</span>
+                <% } %>
+            </div>
+        </div>
+
+        <input type="text" id="globalSearch" class="search-main" placeholder="🔍 Pesquisa geral por nome do insumo, referência (Ref) ou oficina...">
 
         <div class="filter-panel">
             <div class="accordion-header" onclick="toggleFiltersPanel()">
@@ -88,12 +121,13 @@
         <div class="card-panel">
             <div class="card-header-custom">
                 <span><i class="fas fa-boxes"></i> Saldo Atual no Almoxarifado Geral</span>
+                <span id="contadorInsumos" style="font-size: 0.85rem; font-weight: normal; color: #cbd5e1;"><%= insumosGeral.length %> itens exibidos</span>
             </div>
             <div class="table-responsive">
                 <table class="table-custom" id="estoqueTable">
                     <thead>
                         <tr>
-                            <th style="width: 30%;">Insumo (Clique para Detalhes)</th>
+                            <th style="width: 32%;">Insumo (Clique para Detalhes)</th>
                             <th>Referência</th>
                             <th style="text-align: center; color: #2563eb;">Estoque Sede</th>
                             <th style="text-align: center; color: #8b5cf6;">Estoque Complexo</th>
@@ -104,8 +138,21 @@
                     </thead>
                     <tbody>
                         <% insumosGeral.forEach(item => { %>
-                            <tr class="insumo-row" data-name="<%= item.descricao.toLowerCase() %>" data-ref="<%= item.ref.toLowerCase() %>" data-ids="<%= JSON.stringify(item.ids) %>">
-                                <td><a href="/estoque/insumo/<%= item.id %>/detalhes" class="link-insumo"><i class="fas fa-search-plus" style="font-size: 0.85rem;"></i> <%= item.descricao %> (<%= item.unidade %>)</a></td>
+                            <tr class="insumo-row" 
+                                data-name="<%= item.descricao.toLowerCase() %> <%= (item.oficinas_texto || '').toLowerCase() %>" 
+                                data-ref="<%= item.ref.toLowerCase() %>" 
+                                data-ids="<%= JSON.stringify(item.ids) %>"
+                                data-oficinas="<%= JSON.stringify(item.oficina_ids || []) %>">
+                                <td>
+                                    <a href="/estoque/insumo/<%= item.id %>/detalhes" class="link-insumo">
+                                        <i class="fas fa-search-plus" style="font-size: 0.85rem;"></i> <%= item.descricao %> (<%= item.unidade %>)
+                                    </a>
+                                    <div>
+                                        <% (item.oficinas_nomes || []).forEach(ofNome => { %>
+                                            <span class="oficina-tag-mini"><i class="fas fa-industry"></i> <%= ofNome %></span>
+                                        <% }) %>
+                                    </div>
+                                </td>
                                 <td><span style="background: #e2e8f0; padding: 3px 8px; border-radius: 4px; font-size: 0.8rem; font-weight: 600;"><%= item.ref %></span></td>
                                 <td style="text-align: center; color: #2563eb; font-weight: 700;"><%= item.qtd_sede || 0 %></td>
                                 <td style="text-align: center; color: #8b5cf6; font-weight: 700;"><%= item.qtd_complexo || 0 %></td>
@@ -114,6 +161,9 @@
                                 <td style="text-align: center; color: #0284c7; font-weight: 700; background: #f0f9ff;"><%= item.qtd_separada %></td>
                             </tr>
                         <% }) %>
+                        <tr id="linhaSemResultados" style="display: none;">
+                            <td colspan="7" style="text-align: center; color: #64748b; padding: 30px;">Nenhum insumo encontrado para os filtros selecionados.</td>
+                        </tr>
                     </tbody>
                 </table>
             </div>
@@ -122,31 +172,87 @@
 
     <script>
         const insumoMap = <%- insumoProcessoMap %>; 
+        
         function toggleFiltersPanel() {
             const panel = document.getElementById('filterOptions');
             const icon = document.getElementById('accordionIcon');
             panel.style.display = panel.style.display === 'block' ? 'none' : 'block';
             icon.className = panel.style.display === 'block' ? 'fas fa-chevron-up' : 'fas fa-chevron-down';
         }
-        function toggleDropdown() { document.getElementById('dropdownProcessos').classList.toggle('visible'); }
+        
+        function toggleDropdown() { 
+            document.getElementById('dropdownProcessos').classList.toggle('visible'); 
+        }
+        
         document.addEventListener('click', e => {
             const el = document.getElementById('dropdownProcessos');
             if (el && !el.contains(e.target)) el.classList.remove('visible');
         });
+
+        function onOficinaChange(checkbox) {
+            const label = checkbox.closest('.oficina-chip-label');
+            const checkIcon = label.querySelector('i');
+            if (checkbox.checked) {
+                label.classList.add('active');
+                if (checkIcon) checkIcon.style.display = 'inline-block';
+            } else {
+                label.classList.remove('active');
+                if (checkIcon) checkIcon.style.display = 'none';
+            }
+            applyFilters();
+        }
+
+        function limparFiltroOficinas() {
+            document.querySelectorAll('.oficina-check').forEach(cb => {
+                cb.checked = false;
+                const label = cb.closest('.oficina-chip-label');
+                const checkIcon = label.querySelector('i');
+                label.classList.remove('active');
+                if (checkIcon) checkIcon.style.display = 'none';
+            });
+            applyFilters();
+        }
+
         function applyFilters() {
-            const query = document.getElementById('globalSearch').value.toLowerCase();
+            const query = document.getElementById('globalSearch').value.toLowerCase().trim();
             const activeOnly = document.getElementById('checkActiveOnly').checked;
             const selectedProcs = Array.from(document.querySelectorAll('.proc-check:checked')).map(c => parseInt(c.value));
+            const selectedOficinas = Array.from(document.querySelectorAll('.oficina-check:checked')).map(c => String(c.value));
+
+            const btnLimpar = document.getElementById('btnLimparOficinas');
+            if (btnLimpar) {
+                btnLimpar.style.display = selectedOficinas.length > 0 ? 'inline-block' : 'none';
+            }
+
+            let visiveis = 0;
+
             document.querySelectorAll('.insumo-row').forEach(row => {
-                const ids = JSON.parse(row.dataset.ids);
-                const matchesSearch = row.dataset.name.includes(query) || row.dataset.ref.includes(query);
+                const ids = JSON.parse(row.dataset.ids || '[]');
+                const oficinasDoInsumo = JSON.parse(row.dataset.oficinas || '[]').map(String);
+
+                const matchesSearch = !query || row.dataset.name.includes(query) || row.dataset.ref.includes(query);
                 const usedInSelected = selectedProcs.length === 0 || ids.some(id => (insumoMap[id] || []).some(pid => selectedProcs.includes(pid)));
                 const hasActive = activeOnly ? ids.some(id => (insumoMap[id] || []).length > 0) : true;
-                row.style.display = (matchesSearch && usedInSelected && hasActive) ? '' : 'none';
+                const matchesOficina = selectedOficinas.length === 0 || selectedOficinas.some(ofId => oficinasDoInsumo.includes(ofId));
+
+                if (matchesSearch && usedInSelected && hasActive && matchesOficina) {
+                    row.style.display = '';
+                    visiveis++;
+                } else {
+                    row.style.display = 'none';
+                }
             });
+
             const title = document.getElementById('dropdownTitle');
             title.innerHTML = selectedProcs.length === 0 ? 'Selecione os processos...' : `<span style="color:#2563eb; font-weight:bold;">${selectedProcs.length} processos selecionados</span>`;
+            
+            const contador = document.getElementById('contadorInsumos');
+            if (contador) contador.textContent = `${visiveis} itens exibidos`;
+
+            const linhaVazia = document.getElementById('linhaSemResultados');
+            if (linhaVazia) linhaVazia.style.display = visiveis === 0 ? 'table-row' : 'none';
         }
+
         document.getElementById('globalSearch').addEventListener('input', applyFilters);
         document.getElementById('checkActiveOnly').addEventListener('change', applyFilters);
         document.querySelectorAll('.proc-check').forEach(c => c.addEventListener('change', applyFilters));

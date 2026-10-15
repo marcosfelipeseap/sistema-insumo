@@ -2,7 +2,7 @@ const supabase = require('../config/db');
 
 class ProcessoService {
     static async listarTodos(user = null, tipo = 'todos') {
-        let query = supabase.schema('insumo').from('processos').select('*').order('created_at', { ascending: false });
+        let query = supabase.schema('insumo').from('processos').select('*');
         
         if (user && user.cargo === 'solicitante') {
             query = query.eq('solicitante_id', user.id);
@@ -16,23 +16,76 @@ class ProcessoService {
 
         const { data: processos, error } = await query;
         if (error) throw error;
+        if (!processos || processos.length === 0) return [];
 
-        const { data: produtos } = await supabase.schema('insumo').from('processo_produtos').select('*');
+        const processoIds = processos.map(p => p.id);
+
+        // Busca apenas os produtos vinculados aos processos listados (evita limite de 1000 linhas do Supabase)
+        const { data: procProdutos } = await supabase
+            .schema('insumo')
+            .from('processo_produtos')
+            .select('*')
+            .in('processo_id', processoIds);
+
+        const { data: orcProdutos } = await supabase.schema('orcamento').from('produto').select('id, nome, grupo_id');
+        const { data: orcGrupos } = await supabase.schema('orcamento').from('grupos').select('id, nome, oficina_id');
+        const { data: orcOficinas } = await supabase.schema('orcamento').from('oficinas').select('id, nome');
         const { data: produtoComposicao } = await supabase.schema('orcamento').from('produto_composicao').select('*');
-        const { data: movimentacoes } = await supabase.schema('insumo').from('movimentacoes').select('*').eq('tipo', 'SAIDA_PRODUCAO');
+        const { data: movimentacoes } = await supabase
+            .schema('insumo')
+            .from('movimentacoes')
+            .select('*')
+            .eq('tipo', 'SAIDA_PRODUCAO')
+            .in('processo_destino_id', processoIds);
 
-        return processos.map(p => {
-            const prodsDoProcesso = produtos ? produtos.filter(prod => prod.processo_id === p.id) : [];
+        // Mapas rápidos usando String() na chave para evitar falha entre Number e String
+        const mapaProd = {};
+        if (orcProdutos) orcProdutos.forEach(p => { mapaProd[String(p.id)] = p; });
+        
+        const mapaGrupo = {};
+        if (orcGrupos) orcGrupos.forEach(g => { mapaGrupo[String(g.id)] = g; });
+        
+        const mapaOficina = {};
+        if (orcOficinas) orcOficinas.forEach(o => { mapaOficina[String(o.id)] = o; });
+
+        const listaProcessos = processos.map(p => {
+            const prodsDoProcesso = (procProdutos || []).filter(prod => String(prod.processo_id) === String(p.id));
             const countProdutos = prodsDoProcesso.length;
 
             let totalNecessarioGeral = 0;
             let totalEnviadoGeral = 0;
+            let oficinasSet = new Set();
+            let oficinasIdsSet = new Set();
+
+            const produtosDetalhados = prodsDoProcesso.map(pp => {
+                const oProd = mapaProd[String(pp.produto_id)];
+                const oGrupo = (oProd && oProd.grupo_id) ? mapaGrupo[String(oProd.grupo_id)] : null;
+                const oOficina = (oGrupo && oGrupo.oficina_id) ? mapaOficina[String(oGrupo.oficina_id)] : null;
+                
+                if (oOficina && oOficina.nome) {
+                    oficinasSet.add(oOficina.nome);
+                    oficinasIdsSet.add(oOficina.id);
+                }
+
+                const nomeProd = oProd ? oProd.nome : `Produto #${pp.produto_id}`;
+
+                return {
+                    produto_id: pp.produto_id,
+                    nome: nomeProd,
+                    produto_nome: nomeProd,
+                    quantidade: pp.quantidade,
+                    qtd_solicitada: pp.quantidade,
+                    grupo_nome: oGrupo ? oGrupo.nome : 'Sem Grupo',
+                    oficina_id: oOficina ? oOficina.id : null,
+                    oficina_nome: oOficina ? oOficina.nome : 'Sem Oficina'
+                };
+            });
 
             if (prodsDoProcesso.length > 0 && produtoComposicao) {
                 let insumosTotaisMap = {};
 
                 prodsDoProcesso.forEach(pp => {
-                    const composicoes = produtoComposicao.filter(pc => pc.produto_id === pp.produto_id);
+                    const composicoes = produtoComposicao.filter(pc => String(pc.produto_id) === String(pp.produto_id));
                     composicoes.forEach(pc => {
                         const qtd_total = Number(pc.indice) * Number(pp.quantidade);
                         if (!insumosTotaisMap[pc.insumo_id]) {
@@ -42,7 +95,7 @@ class ProcessoService {
                     });
                 });
 
-                const movsProcesso = movimentacoes ? movimentacoes.filter(m => m.processo_destino_id === p.id) : [];
+                const movsProcesso = (movimentacoes || []).filter(m => String(m.processo_destino_id) === String(p.id));
                 const mapaEnviado = {};
                 movsProcesso.forEach(m => {
                     if (!mapaEnviado[m.insumo_id]) mapaEnviado[m.insumo_id] = 0;
@@ -59,32 +112,53 @@ class ProcessoService {
             }
 
             const percentualGeral = totalNecessarioGeral > 0 ? Math.round((totalEnviadoGeral / totalNecessarioGeral) * 100) : 0;
+            const oficinasLista = Array.from(oficinasSet).sort((a, b) => a.localeCompare(b, 'pt-BR'));
 
             return { 
                 ...p, 
                 qtd_produtos: countProdutos,
-                percentual_conclusao: percentualGeral 
+                produtos_lista: produtosDetalhados,
+                produtos: produtosDetalhados,
+                percentual_conclusao: percentualGeral,
+                oficina_ids: Array.from(oficinasIdsSet),
+                oficinas: oficinasLista,
+                oficinas_texto: oficinasLista.length > 0 ? oficinasLista.join(', ') : 'Sem Oficina Vinculada'
             };
         });
+
+        // Ordena em ordem alfabética pelo nome do processo
+        listaProcessos.sort((a, b) => (a.nome || '').localeCompare(b.nome || '', 'pt-BR', { sensitivity: 'base' }));
+
+        return listaProcessos;
     }
 
     static async buscarProdutosOrcamento() {
         const { data: produtos, error: errProd } = await supabase.schema('orcamento').from('produto').select('id, nome, grupo_id');
         if (errProd) throw errProd;
 
-        const { data: grupos, error: errGrup } = await supabase.schema('orcamento').from('grupos').select('id, nome');
+        const { data: grupos, error: errGrup } = await supabase.schema('orcamento').from('grupos').select('id, nome, oficina_id');
         if (errGrup) throw errGrup;
 
-        const produtosCombo = produtos.map(p => {
-            const grupo = grupos.find(g => g.id === p.grupo_id);
-            const grupoNome = grupo ? grupo.nome : 'Sem Grupo Vinculado';
+        const { data: oficinas, error: errOfic } = await supabase.schema('orcamento').from('oficinas').select('id, nome');
+        if (errOfic) throw errOfic;
+
+        const produtosCombo = (produtos || []).map(p => {
+            const grupo = grupos ? grupos.find(g => String(g.id) === String(p.grupo_id)) : null;
+            const oficina = (grupo && oficinas) ? oficinas.find(o => String(o.id) === String(grupo.oficina_id)) : null;
+            
+            const grupoNome = grupo ? grupo.nome : 'Sem Grupo';
+            const oficinaNome = oficina ? oficina.nome : 'Sem Oficina';
+
             return {
                 id: p.id,
-                nome_combo: `${p.nome} - (${grupoNome})`
+                nome: p.nome,
+                grupo_nome: grupoNome,
+                oficina_nome: oficinaNome,
+                nome_combo: `${p.nome} - (${oficinaNome} / ${grupoNome})`
             };
         });
 
-        produtosCombo.sort((a, b) => a.nome_combo.localeCompare(b.nome_combo));
+        produtosCombo.sort((a, b) => a.nome_combo.localeCompare(b.nome_combo, 'pt-BR'));
         return produtosCombo;
     }
 
@@ -120,9 +194,20 @@ class ProcessoService {
         const processoId = proc.id;
 
         if (produtos_selecionados && produtos_selecionados.length > 0) {
-            const inserts = produtos_selecionados
-                .filter(p => p.produto_id && p.quantidade > 0)
-                .map(p => ({ processo_id: processoId, produto_id: p.produto_id, quantidade: p.quantidade }));
+            const mapaProd = {};
+            produtos_selecionados.forEach(p => {
+                const pId = Number(p.produto_id) || p.produto_id;
+                const qtd = Number(p.quantidade);
+                if (pId && qtd > 0) {
+                    mapaProd[pId] = (mapaProd[pId] || 0) + qtd;
+                }
+            });
+
+            const inserts = Object.keys(mapaProd).map(produto_id => ({
+                processo_id: processoId,
+                produto_id,
+                quantidade: mapaProd[produto_id]
+            }));
             
             if (inserts.length > 0) {
                 await supabase.schema('insumo').from('processo_produtos').insert(inserts);
@@ -137,39 +222,48 @@ class ProcessoService {
 
         const { data: processoProdutos } = await supabase.schema('insumo').from('processo_produtos').select('produto_id, quantidade').eq('processo_id', processoId);
         
-        const produtoIds = processoProdutos.map(p => p.produto_id);
-        const { data: orcamentoProdutos } = await supabase.schema('orcamento').from('produto').select('id, nome, grupo_id').in('id', produtoIds);
+        const produtoIds = (processoProdutos || []).map(p => p.produto_id);
+        const { data: orcamentoProdutos } = await supabase.schema('orcamento').from('produto').select('id, nome, grupo_id').in('id', produtoIds.length > 0 ? produtoIds : [0]);
         
-        const grupoIds = orcamentoProdutos.map(p => p.grupo_id).filter(id => id);
-        const { data: orcamentoGrupos } = await supabase.schema('orcamento').from('grupos').select('id, nome').in('id', grupoIds.length > 0 ? grupoIds : [0]);
+        const grupoIds = (orcamentoProdutos || []).map(p => p.grupo_id).filter(id => id);
+        const { data: orcamentoGrupos } = await supabase.schema('orcamento').from('grupos').select('id, nome, oficina_id').in('id', grupoIds.length > 0 ? grupoIds : [0]);
 
-        const { data: produtoComposicao } = await supabase.schema('orcamento').from('produto_composicao').select('produto_id, insumo_id, indice').in('produto_id', produtoIds);
+        const oficinaIds = (orcamentoGrupos || []).map(g => g.oficina_id).filter(id => id);
+        const { data: orcamentoOficinas } = await supabase.schema('orcamento').from('oficinas').select('id, nome').in('id', oficinaIds.length > 0 ? oficinaIds : [0]);
+
+        const { data: produtoComposicao } = await supabase.schema('orcamento').from('produto_composicao').select('produto_id, insumo_id, indice').in('produto_id', produtoIds.length > 0 ? produtoIds : [0]);
         
-        const insumoIds = produtoComposicao.map(pc => pc.insumo_id);
-        
+        const insumoIds = (produtoComposicao || []).map(pc => pc.insumo_id);
         const { data: orcamentoInsumos } = await supabase.schema('orcamento').from('insumo').select('id, descricao, unidade, valor_unit, ref').in('id', insumoIds.length > 0 ? insumoIds : [0]);
 
         let insumosTotaisMap = {};
+        let oficinasSet = new Set();
+        let oficinasIdsSet = new Set();
         
-        processo.produtos = processoProdutos.map(pp => {
-            const oProd = orcamentoProdutos.find(p => p.id === pp.produto_id);
-            const oGrupo = oProd ? orcamentoGrupos.find(g => g.id === oProd.grupo_id) : null;
+        processo.produtos = (processoProdutos || []).map(pp => {
+            const oProd = (orcamentoProdutos || []).find(p => String(p.id) === String(pp.produto_id));
+            const oGrupo = (oProd && orcamentoGrupos) ? orcamentoGrupos.find(g => String(g.id) === String(oProd.grupo_id)) : null;
+            const oOficina = (oGrupo && orcamentoOficinas) ? orcamentoOficinas.find(o => String(o.id) === String(oGrupo.oficina_id)) : null;
             
-            const composicoes = produtoComposicao.filter(pc => pc.produto_id === pp.produto_id);
+            if (oOficina && oOficina.nome) {
+                oficinasSet.add(oOficina.nome);
+                oficinasIdsSet.add(oOficina.id);
+            }
+
+            const composicoes = (produtoComposicao || []).filter(pc => String(pc.produto_id) === String(pp.produto_id));
             const itens = composicoes.map(pc => {
-                const oInsumo = orcamentoInsumos.find(i => i.id === pc.insumo_id) || { descricao: 'Desconhecido', unidade: '-', valor_unit: 0, ref: null };
+                const oInsumo = (orcamentoInsumos || []).find(i => String(i.id) === String(pc.insumo_id)) || { descricao: 'Desconhecido', unidade: '-', valor_unit: 0, ref: null };
                 const qtd_base = Number(pc.indice);
                 const qtd_total = qtd_base * Number(pp.quantidade);
 
-                // Padroniza a string para forçar itens idênticos a se agruparem
                 const refValida = (oInsumo.ref && String(oInsumo.ref).trim() !== '') ? String(oInsumo.ref).trim() : null;
                 const descNormalizada = oInsumo.descricao.replace(/\s+/g, ' ').replace(/\s+,/g, ',').trim().toUpperCase();
                 const chaveAgrupamento = refValida ? refValida : descNormalizada;
 
                 if (!insumosTotaisMap[chaveAgrupamento]) {
                     insumosTotaisMap[chaveAgrupamento] = {
-                        insumo_id: pc.insumo_id, // Mantém o principal
-                        insumo_ids: [pc.insumo_id], // ARMAZENA TODOS OS IDs DESTE GRUPO!
+                        insumo_id: pc.insumo_id,
+                        insumo_ids: [pc.insumo_id],
                         descricao: oInsumo.descricao,
                         unidade: oInsumo.unidade,
                         valor_unit: oInsumo.valor_unit,
@@ -196,11 +290,19 @@ class ProcessoService {
             return {
                 produto_id: pp.produto_id,
                 qtd_solicitada: pp.quantidade,
+                quantidade: pp.quantidade,
                 produto_nome: oProd ? oProd.nome : 'Desconhecido',
+                nome: oProd ? oProd.nome : 'Desconhecido',
                 grupo_nome: oGrupo ? oGrupo.nome : 'Sem Grupo',
+                oficina_id: oOficina ? oOficina.id : null,
+                oficina_nome: oOficina ? oOficina.nome : 'Sem Oficina',
                 itens: itens
             };
         });
+
+        processo.oficina_ids = Array.from(oficinasIdsSet);
+        processo.oficinas = Array.from(oficinasSet).sort((a, b) => a.localeCompare(b, 'pt-BR'));
+        processo.oficinas_texto = processo.oficinas.length > 0 ? processo.oficinas.join(', ') : 'Sem Oficina Vinculada';
 
         processo.insumos_consolidados = Object.values(insumosTotaisMap).map(ins => {
             return {
@@ -208,7 +310,7 @@ class ProcessoService {
                 qtd_arredondada: Math.ceil(ins.qtd_exata),
                 custo_arredondado: Math.ceil(ins.qtd_exata) * Number(ins.valor_unit)
             };
-        }).sort((a, b) => a.descricao.localeCompare(b.descricao));
+        }).sort((a, b) => a.descricao.localeCompare(b.descricao, 'pt-BR'));
 
         return processo;
     }
@@ -216,13 +318,50 @@ class ProcessoService {
     static async buscarPorId(processoId) {
         const { data, error } = await supabase.schema('insumo').from('processos').select('*').eq('id', processoId).single();
         if (error) throw error;
+
+        const { data: produtos } = await supabase.schema('insumo').from('processo_produtos').select('produto_id, quantidade').eq('processo_id', processoId);
+        data.produtos = produtos || [];
+
         return data;
     }
 
-    static async atualizar(processoId, numero, nome) {
-        const numeroSanitizado = numero.replace(/\./g, '');
-        const { error } = await supabase.schema('insumo').from('processos').update({ numero: numeroSanitizado, nome }).eq('id', processoId);
-        if (error) throw error;
+    static async atualizar(processoId, numero, nome, produtos_selecionados = null) {
+        const updateData = {};
+        if (numero !== undefined && numero !== null) {
+            updateData.numero = String(numero).replace(/\./g, '');
+        }
+        if (nome !== undefined && nome !== null) {
+            updateData.nome = nome;
+        }
+
+        if (Object.keys(updateData).length > 0) {
+            const { error } = await supabase.schema('insumo').from('processos').update(updateData).eq('id', processoId);
+            if (error) throw error;
+        }
+
+        if (produtos_selecionados !== null) {
+            await supabase.schema('insumo').from('processo_produtos').delete().eq('processo_id', processoId);
+
+            const mapaProd = {};
+            produtos_selecionados.forEach(p => {
+                const pId = Number(p.produto_id) || p.produto_id;
+                const qtd = Number(p.quantidade);
+                if (pId && qtd > 0) {
+                    mapaProd[pId] = (mapaProd[pId] || 0) + qtd;
+                }
+            });
+
+            const inserts = Object.keys(mapaProd).map(produto_id => ({
+                processo_id: processoId,
+                produto_id,
+                quantidade: mapaProd[produto_id]
+            }));
+
+            if (inserts.length > 0) {
+                const { error: errIns } = await supabase.schema('insumo').from('processo_produtos').insert(inserts);
+                if (errIns) throw errIns;
+            }
+        }
     }
 
     static async excluir(processoId) {
@@ -254,4 +393,5 @@ class ProcessoService {
         if (error) throw error;
     }
 }
+
 module.exports = ProcessoService;

@@ -8,8 +8,10 @@ const envioController = {
         try {
             const processos = await ProcessoService.listarTodos(res.locals.user || req.session.user, 'aprovados');
             const ativos = processos.filter(p => p.status !== 'Concluído');
-            res.render('envios/index', { processos: ativos, user: res.locals.user });
+            const oficinas = await EstoqueService.listarOficinas();
+            res.render('envios/index', { processos: ativos, oficinas, user: res.locals.user });
         } catch (error) {
+            console.error(error);
             res.status(500).send('Erro ao carregar processos');
         }
     },
@@ -19,21 +21,43 @@ const envioController = {
             const processo = await EstoqueService.listarSaldosEnvio(req.params.id);
             if (!processo) return res.status(404).send("Processo não encontrado");
 
+            const oficinas = await EstoqueService.listarOficinas();
             const insumosGerais = await EstoqueService.listarEstoqueGeral();
+            
             const mapaRef = {};
+            const mapaOficinasInsumo = {};
             insumosGerais.forEach(item => {
                 if (item.ids && Array.isArray(item.ids)) {
-                    item.ids.forEach(id => mapaRef[id] = item.ref);
+                    item.ids.forEach(id => {
+                        mapaRef[id] = item.ref;
+                        mapaOficinasInsumo[id] = {
+                            oficina_ids: item.oficina_ids || [],
+                            oficinas_nomes: item.oficinas_nomes || []
+                        };
+                    });
                 } else if (item.id) {
                     mapaRef[item.id] = item.ref;
+                    mapaOficinasInsumo[item.id] = {
+                        oficina_ids: item.oficina_ids || [],
+                        oficinas_nomes: item.oficinas_nomes || []
+                    };
                 }
             });
 
             if (processo.insumos_envio) {
-                processo.insumos_envio = processo.insumos_envio.filter(ins => {
-                    const ref = ins.ref !== undefined ? ins.ref : mapaRef[ins.insumo_id];
-                    return ref && String(ref).trim() !== '';
-                });
+                processo.insumos_envio = processo.insumos_envio
+                    .filter(ins => {
+                        const ref = ins.ref !== undefined ? ins.ref : mapaRef[ins.insumo_id];
+                        return ref && String(ref).trim() !== '';
+                    })
+                    .map(ins => {
+                        const infoOf = mapaOficinasInsumo[ins.insumo_id] || { oficina_ids: [], oficinas_nomes: [] };
+                        return {
+                            ...ins,
+                            oficina_ids: infoOf.oficina_ids,
+                            oficinas_nomes: infoOf.oficinas_nomes
+                        };
+                    });
             }
 
             const { data: listaTodos } = await supabase.schema('orcamento').from('insumo').select('id, descricao, unidade').order('descricao');
@@ -62,13 +86,16 @@ const envioController = {
                 const descKey = (ins.descricao || '').trim().toLowerCase();
                 if (!mapaCatalogoUnico[descKey]) {
                     const saldo = mapaSaldosPorDescricao[descKey] || { sede: 0, complexo: 0, regional: 0 };
+                    const infoOf = mapaOficinasInsumo[ins.id] || { oficina_ids: [], oficinas_nomes: [] };
                     mapaCatalogoUnico[descKey] = {
                         id: ins.id,
                         descricao: ins.descricao,
                         unidade: ins.unidade,
                         saldo_sede: saldo.sede,
                         saldo_complexo: saldo.complexo,
-                        saldo_regional: saldo.regional
+                        saldo_regional: saldo.regional,
+                        oficina_ids: infoOf.oficina_ids,
+                        oficinas_nomes: infoOf.oficinas_nomes
                     };
                 }
             });
@@ -77,7 +104,6 @@ const envioController = {
                 ins.saldo_sede > 0 || ins.saldo_complexo > 0 || ins.saldo_regional > 0
             );
 
-            // Carrega itens extras que já tiveram saídas neste processo para mantê-los no formulário
             const idsPadrao = new Set((processo.insumos_envio || []).map(i => String(i.insumo_id)));
             const { data: movsExtras } = await supabase.schema('insumo').from('movimentacoes')
                 .select('insumo_id')
@@ -96,7 +122,7 @@ const envioController = {
 
             processo.historico_lotes = await EstoqueService.obterHistoricoEnvios(processo.id);
 
-            res.render('envios/gerenciar', { processo, user: res.locals.user, catalogoExtras });
+            res.render('envios/gerenciar', { processo, oficinas, user: res.locals.user, catalogoExtras });
         } catch(error) {
             console.error(error);
             res.status(500).send(`<h2 style="color:red;">ERRO:</h2><pre>${error.stack}</pre>`);
