@@ -86,6 +86,13 @@
         .modal-body { padding: 24px; overflow-y: auto; }
         .modal-footer { padding: 16px 24px; background: #f8fafc; border-top: 1px solid #e2e8f0; display: flex; justify-content: flex-end; gap: 12px; }
         .modal-table-row:hover { background-color: #f1f5f9; cursor: pointer; }
+
+        /* Estilos específicos para o Modal de Pré-visualização */
+        .preview-info-bar { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 12px; background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 14px; margin-bottom: 18px; }
+        .preview-info-item { font-size: 0.85rem; color: #64748b; }
+        .preview-info-item strong { display: block; color: #0f172a; font-size: 0.98rem; margin-top: 2px; }
+        .badge-tipo-padrao { background: #fef3c7; color: #b45309; padding: 3px 8px; border-radius: 4px; font-size: 0.72rem; font-weight: bold; }
+        .badge-tipo-extra { background: #ede9fe; color: #6d28d9; padding: 3px 8px; border-radius: 4px; font-size: 0.72rem; font-weight: bold; }
     </style>
 </head>
 <body>
@@ -217,6 +224,8 @@
                             %>
                                 <tr id="tr_<%= ins.insumo_id %>" 
                                     class="insumo-padrao-row <%= ins.quantidade_pendente === 0 ? '' : 'row-disabled' %>" 
+                                    data-descricao="<%= ins.descricao %>"
+                                    data-unidade="<%= ins.unidade %>"
                                     data-nome="<%= ins.descricao.toLowerCase() %> <%= (ins.oficinas_nomes || []).join(' ').toLowerCase() %>" 
                                     data-oficinas='<%= JSON.stringify(ins.oficina_ids || []) %>'
                                     data-produtos='<%= JSON.stringify(prodsRelacionados) %>'
@@ -320,7 +329,7 @@
 
                             <% if (processo.extras_anteriores && processo.extras_anteriores.length > 0) { %>
                                 <% processo.extras_anteriores.forEach(ex => { %>
-                                    <tr id="tr_<%= ex.id %>" class="row-disabled">
+                                    <tr id="tr_<%= ex.id %>" class="row-disabled" data-descricao="<%= ex.descricao %>" data-unidade="<%= ex.unidade %>">
                                         <td style="text-align: center;">
                                             <input type="checkbox" name="selecionados" value="<%= ex.id %>" class="check-item check-extra" onclick="toggleRow(this, '<%= ex.id %>', true)">
                                         </td>
@@ -362,15 +371,15 @@
             <div class="panel-footer">
                 <div style="flex: 1; min-width: 250px;">
                     <label style="font-weight:bold; display:block; margin-bottom:8px; color: #475569;"><i class="fas fa-user-check"></i> Entregue por (Almoxarifado):</label>
-                    <input type="text" value="<%= user ? user.username : 'Sistema' %>" readonly class="input-lote" style="width:100%; background:#f1f5f9; color: #475569; border: 1px solid #e2e8f0;">
+                    <input type="text" id="entregue_por_input" value="<%= user ? user.username : 'Sistema' %>" readonly class="input-lote" style="width:100%; background:#f1f5f9; color: #475569; border: 1px solid #e2e8f0;">
                 </div>
                 <div style="flex: 1; min-width: 250px;">
                     <label style="font-weight:bold; display:block; margin-bottom:8px; color:#0f172a;"><i class="fas fa-signature"></i> Recebido por (Produção) <span style="color: #ef4444;">*</span></label>
                     <input type="text" name="recebido_por" id="recebido_por" required placeholder="Digite o nome de quem está retirando" class="input-lote" style="width:100%; border: 2px solid #3b82f6; box-shadow: 0 4px 6px -1px rgba(59, 130, 246, 0.1);" autocomplete="off">
                 </div>
                 <div>
-                    <button type="submit" class="btn" style="background:#f59e0b; color:white; padding: 14px 28px; font-size: 1.1rem; font-weight: bold; border-radius: 8px; box-shadow: 0 4px 6px rgba(245, 158, 11, 0.3); transition: 0.3s;" onclick="return validarEnvio()" id="btnSubmit">
-                        <i class="fas fa-file-pdf"></i> Confirmar e Gerar Recibo
+                    <button type="button" class="btn" style="background:#f59e0b; color:white; padding: 14px 28px; font-size: 1.1rem; font-weight: bold; border-radius: 8px; box-shadow: 0 4px 6px rgba(245, 158, 11, 0.3); transition: 0.3s;" onclick="abrirPreVisualizacao()" id="btnAbrirPreview">
+                        <i class="fas fa-eye"></i> Pré-visualizar e Confirmar Envio
                     </button>
                 </div>
             </div>
@@ -444,6 +453,69 @@
                 <button type="button" class="btn" style="background:#8b5cf6; color:white; font-weight: bold; box-shadow: 0 4px 6px rgba(139, 92, 246, 0.3);" onclick="processarSelecaoModal()">
                     <i class="fas fa-plus"></i> Adicionar Selecionados
                 </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- MODAL DE PRÉ-VISUALIZAÇÃO E CONFIRMAÇÃO DE ENVIO -->
+    <div id="modalPreVisualizacao" class="modal-overlay" style="display: none;">
+        <div class="modal-content" style="max-width: 850px;">
+            <div class="modal-header" style="background: #f59e0b;">
+                <h2><i class="fas fa-clipboard-check"></i> Pré-visualização do Envio</h2>
+                <span class="close-modal" onclick="fecharPreVisualizacao()">&times;</span>
+            </div>
+            <div class="modal-body">
+                <p style="margin-top: 0; margin-bottom: 14px; color: #475569; font-size: 0.95rem;">
+                    Confira os itens selecionados abaixo. Você pode ajustar as quantidades ou remover itens antes de confirmar e gerar o recibo.
+                </p>
+
+                <div class="preview-info-bar">
+                    <div class="preview-info-item">
+                        Processo Destino
+                        <strong><%= processo.nome %> (#<%= processo.numero %>)</strong>
+                    </div>
+                    <div class="preview-info-item">
+                        Entregue por (Almoxarifado)
+                        <strong id="previewEntreguePor">-</strong>
+                    </div>
+                    <div class="preview-info-item">
+                        Recebido por (Produção)
+                        <strong id="previewRecebidoPor" style="color: #2563eb;">-</strong>
+                    </div>
+                    <div class="preview-info-item">
+                        Total de Itens Selecionados
+                        <strong id="previewTotalItens" style="color: #059669;">0 item(ns)</strong>
+                    </div>
+                </div>
+
+                <div class="table-responsive" style="max-height: 45vh; border: 1px solid #cbd5e1; box-shadow: none;">
+                    <table class="table-custom">
+                        <thead>
+                            <tr>
+                                <th style="width: 36%;">Insumo / Material</th>
+                                <th style="width: 10%; text-align: center;">UN</th>
+                                <th style="width: 24%;">Origem (Baixa em)</th>
+                                <th style="width: 20%;">Qtd a Enviar</th>
+                                <th style="width: 10%; text-align: center;">Remover</th>
+                            </tr>
+                        </thead>
+                        <tbody id="listaItensPreVisualizacao">
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+            <div class="modal-footer" style="justify-content: space-between; align-items: center;">
+                <span style="font-size: 0.82rem; color: #64748b;">
+                    <i class="fas fa-info-circle"></i> O recibo será aberto em uma nova aba para impressão/PDF.
+                </span>
+                <div style="display: flex; gap: 12px;">
+                    <button type="button" class="btn" style="background:#e2e8f0; color:#475569; font-weight: bold;" onclick="fecharPreVisualizacao()">
+                        <i class="fas fa-arrow-left"></i> Voltar e Editar
+                    </button>
+                    <button type="button" class="btn" style="background:#10b981; color:white; padding: 12px 24px; font-weight: bold; font-size: 1rem; box-shadow: 0 4px 6px rgba(16, 185, 129, 0.3);" onclick="confirmarEnvioFinal()" id="btnConfirmarFinal">
+                        <i class="fas fa-file-pdf"></i> Confirmar e Gerar Recibo
+                    </button>
+                </div>
             </div>
         </div>
     </div>
@@ -616,6 +688,8 @@
             const tr = document.createElement('tr');
             tr.id = 'tr_' + ref.id;
             tr.className = 'row-selected-extra';
+            tr.setAttribute('data-descricao', ref.descricao);
+            tr.setAttribute('data-unidade', ref.unidade);
             
             let originOptions = `<option value="" disabled selected>Escolha de onde tirar...</option>`;
             if(ref.saldo_sede > 0) originOptions += `<option value="GERAL_SEDE" data-saldo="${ref.saldo_sede}">Estoque Sede (${ref.saldo_sede} disp.)</option>`;
@@ -731,48 +805,204 @@
             const maxPermitido = parseFloat(input.max);
             const valorDigitado = parseFloat(input.value);
             
-            if(valorDigitado > maxPermitido) {
+            if(!isNaN(maxPermitido) && valorDigitado > maxPermitido) {
                 alert(`Atenção: Limite disponível nesta origem: ${maxPermitido}.`);
                 input.value = maxPermitido;
             }
         }
 
-        function validarEnvio() {
+        // --- FUNÇÕES DE PRÉ-VISUALIZAÇÃO E REVISÃO DO ENVIO ---
+        function formatarNomeOrigem(valor) {
+            const mapa = {
+                'RESERVA': 'Da Reserva do Processo',
+                'GERAL_SEDE': 'Almoxarifado Sede',
+                'GERAL_COMPLEXO': 'Almoxarifado Complexo',
+                'GERAL_REGIONAL': 'Almoxarifado Regional'
+            };
+            return mapa[valor] || valor;
+        }
+
+        function abrirPreVisualizacao() {
             const checkboxes = document.querySelectorAll('.check-item:checked');
             if (checkboxes.length === 0) {
                 alert("Passo 1 Incompleto: Selecione pelo menos UM insumo (padrão ou extra) para envio.");
-                return false;
+                return;
             }
-            
+
             let origensValidas = true;
+            let qtdsValidas = true;
+
             checkboxes.forEach(chk => {
                 const id = chk.value;
                 const origem = document.getElementById('origem_' + id);
-                if(!origem || !origem.value) {
+                const qtd = document.getElementById('qtd_' + id);
+
+                if (!origem || !origem.value) {
                     origensValidas = false;
-                    if(origem) origem.style.border = "2px solid #ef4444";
+                    if (origem) origem.style.border = "2px solid #ef4444";
+                }
+
+                const valQtd = parseFloat(qtd?.value);
+                if (!qtd || isNaN(valQtd) || valQtd <= 0) {
+                    qtdsValidas = false;
+                    if (qtd) qtd.style.border = "2px solid #ef4444";
                 }
             });
 
-            if(!origensValidas) {
+            if (!origensValidas) {
                 alert("Passo 2 Incompleto: Escolha a 'Origem do Material' de todos os itens selecionados.");
-                return false;
+                return;
             }
 
-            const btn = document.getElementById('btnSubmit');
-            const textoOriginal = btn.innerHTML;
-            btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> A registar...';
-            
-            setTimeout(() => {
-                btn.innerHTML = textoOriginal;
-                checkboxes.forEach(chk => {
-                    chk.checked = false;
-                    toggleRow(chk, chk.value, chk.classList.contains('check-extra'));
-                });
-                document.getElementById('recebido_por').value = '';
-            }, 1500);
+            if (!qtdsValidas) {
+                alert("Passo 3 Incompleto: Informe uma quantidade válida (maior que zero) para todos os itens selecionados.");
+                return;
+            }
 
-            return true;
+            const recebidoPor = document.getElementById('recebido_por').value.trim();
+            if (!recebidoPor) {
+                alert("Atenção: Informe o nome de quem está recebendo o material (Recebido por).");
+                document.getElementById('recebido_por').focus();
+                return;
+            }
+
+            renderizarTabelaPreVisualizacao();
+            document.getElementById('modalPreVisualizacao').style.display = 'flex';
+        }
+
+        function renderizarTabelaPreVisualizacao() {
+            const checkboxes = document.querySelectorAll('.check-item:checked');
+            const tbody = document.getElementById('listaItensPreVisualizacao');
+            tbody.innerHTML = '';
+
+            document.getElementById('previewEntreguePor').textContent = document.getElementById('entregue_por_input').value;
+            document.getElementById('previewRecebidoPor').textContent = document.getElementById('recebido_por').value.trim();
+            document.getElementById('previewTotalItens').textContent = `${checkboxes.length} item(ns)`;
+
+            checkboxes.forEach(chk => {
+                const id = chk.value;
+                const isExtra = chk.classList.contains('check-extra');
+                const row = document.getElementById('tr_' + id);
+                const origemSelect = document.getElementById('origem_' + id);
+                const qtdInput = document.getElementById('qtd_' + id);
+
+                const descricao = row.getAttribute('data-descricao') || row.querySelector('strong')?.innerText || 'Insumo';
+                const unidade = row.getAttribute('data-unidade') || '-';
+                const origemValor = origemSelect.value;
+                const qtdAtual = qtdInput.value;
+                const maxPermitido = qtdInput.max || qtdInput.getAttribute('data-pendente') || 999999;
+
+                const tr = document.createElement('tr');
+                tr.id = 'preview_tr_' + id;
+                tr.innerHTML = `
+                    <td>
+                        <strong style="color: #0f172a; font-size: 0.98rem;">${descricao}</strong><br>
+                        <span class="${isExtra ? 'badge-tipo-extra' : 'badge-tipo-padrao'}">
+                            ${isExtra ? 'Material Extra' : 'Composição Padrão'}
+                        </span>
+                    </td>
+                    <td style="text-align: center; font-weight: bold; color: #475569;">${unidade}</td>
+                    <td>
+                        <span style="font-size: 0.88rem; font-weight: 600; color: #334155;">
+                            ${formatarNomeOrigem(origemValor)}
+                        </span>
+                    </td>
+                    <td>
+                        <input type="number" 
+                               step="0.01" 
+                               min="0.01" 
+                               max="${maxPermitido}" 
+                               value="${qtdAtual}" 
+                               class="input-lote" 
+                               style="width: 100%; font-weight: bold; color: #0f172a; border: 1px solid #94a3b8; background: white;"
+                               oninput="sincronizarQtdModal(this, '${id}')">
+                        <small style="display: block; font-size: 0.72rem; color: #059669; margin-top: 2px;">
+                            Máx disp.: <strong>${maxPermitido}</strong>
+                        </small>
+                    </td>
+                    <td style="text-align: center;">
+                        <button type="button" 
+                                onclick="removerItemDaPreVisualizacao('${id}')" 
+                                style="background: #fee2e2; border: 1px solid #fecaca; color: #ef4444; padding: 6px 10px; border-radius: 6px; cursor: pointer; font-size: 0.95rem;" 
+                                title="Remover item deste envio">
+                            <i class="fas fa-trash-alt"></i>
+                        </button>
+                    </td>
+                `;
+                tbody.appendChild(tr);
+            });
+        }
+
+        function sincronizarQtdModal(inputModal, insumoId) {
+            const qtdOriginal = document.getElementById('qtd_' + insumoId);
+            if (!qtdOriginal) return;
+
+            const maxPermitido = parseFloat(inputModal.max);
+            let valor = parseFloat(inputModal.value);
+
+            if (!isNaN(maxPermitido) && valor > maxPermitido) {
+                alert(`Atenção: O limite máximo disponível na origem selecionada é ${maxPermitido}.`);
+                inputModal.value = maxPermitido;
+                valor = maxPermitido;
+            }
+
+            qtdOriginal.value = inputModal.value;
+        }
+
+        function removerItemDaPreVisualizacao(insumoId) {
+            const row = document.getElementById('tr_' + insumoId);
+            if (row) {
+                const chk = row.querySelector('.check-item');
+                if (chk) {
+                    chk.checked = false;
+                    toggleRow(chk, insumoId, chk.classList.contains('check-extra'));
+                }
+            }
+
+            const restantes = document.querySelectorAll('.check-item:checked');
+            if (restantes.length === 0) {
+                fecharPreVisualizacao();
+                alert("Todos os itens foram removidos da seleção. Selecione ao menos um insumo para realizar o envio.");
+            } else {
+                renderizarTabelaPreVisualizacao();
+            }
+        }
+
+        function fecharPreVisualizacao() {
+            document.getElementById('modalPreVisualizacao').style.display = 'none';
+        }
+
+        function confirmarEnvioFinal() {
+            const checkboxes = document.querySelectorAll('.check-item:checked');
+            if (checkboxes.length === 0) {
+                alert("Nenhum item selecionado para envio.");
+                fecharPreVisualizacao();
+                return;
+            }
+
+            for (let chk of checkboxes) {
+                const id = chk.value;
+                const qtdInput = document.getElementById('qtd_' + id);
+                const val = parseFloat(qtdInput.value);
+                if (isNaN(val) || val <= 0) {
+                    alert("Verifique as quantidades: todos os itens selecionados precisam ter quantidade maior que zero.");
+                    return;
+                }
+            }
+
+            const btnFinal = document.getElementById('btnConfirmarFinal');
+            const textoOriginal = btnFinal.innerHTML;
+            btnFinal.disabled = true;
+            btnFinal.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Gerando Recibo...';
+
+            const form = document.getElementById('formLote');
+            form.submit();
+
+            // Após enviar para a nova aba, fecha o modal e recarrega a página atual para atualizar os saldos e o histórico
+            setTimeout(() => {
+                fecharPreVisualizacao();
+                window.location.reload();
+            }, 1500);
         }
     </script>
 </body>
