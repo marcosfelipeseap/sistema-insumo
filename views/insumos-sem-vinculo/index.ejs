@@ -1,0 +1,857 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <title>Insumos Sem Vínculo</title>
+    <link rel="stylesheet" href="/css/style.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        .card-panel { background: white; border-radius: 12px; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05); overflow: hidden; border: 1px solid #e2e8f0; margin-bottom: 28px; }
+        .card-header-custom { background: #1e293b; color: white; padding: 16px 22px; font-weight: bold; font-size: 1.05rem; display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 10px; }
+
+        .table-responsive { width: 100%; overflow-x: auto; }
+        .table-custom { width: 100%; border-collapse: collapse; }
+        .table-custom th, .table-custom td { padding: 12px 14px; border-bottom: 1px solid #e2e8f0; text-align: left; vertical-align: middle; }
+        .table-custom th { background-color: #f8fafc; color: #475569; font-weight: 700; text-transform: uppercase; font-size: 0.75rem; position: sticky; top: 0; z-index: 5; }
+        .table-custom td { color: #1e293b; font-size: 0.92rem; }
+        .table-custom tbody tr:hover { background-color: #f8fafc; }
+
+        .link-insumo { color: #2563eb; text-decoration: none; font-weight: 700; display: inline-flex; align-items: center; gap: 7px; font-size: 0.98rem; }
+        .link-insumo:hover { text-decoration: underline; }
+
+        /* Barra de Oficinas no Topo */
+        .oficinas-top-bar { background: white; border: 1px solid #e2e8f0; border-radius: 10px; padding: 15px 20px; margin-bottom: 18px; box-shadow: 0 2px 4px rgba(0,0,0,0.03); }
+        .oficinas-top-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; flex-wrap: wrap; gap: 10px; }
+        .oficinas-chips-container { display: flex; flex-wrap: wrap; gap: 8px; }
+        .oficina-chip-label { display: inline-flex; align-items: center; gap: 8px; padding: 7px 14px; background: #f8fafc; border: 1px solid #cbd5e1; border-radius: 999px; font-size: 0.86rem; font-weight: 600; color: #334155; cursor: pointer; user-select: none; transition: all 0.2s; }
+        .oficina-chip-label:hover { border-color: #8b5cf6; background: #f5f3ff; }
+        .oficina-chip-label input { display: none; }
+        .oficina-chip-label.active { background: #7c3aed; color: white; border-color: #6d28d9; box-shadow: 0 2px 6px rgba(124, 58, 237, 0.25); }
+        .oficina-tag-mini { display: inline-block; background: #ede9fe; color: #6d28d9; padding: 2px 8px; border-radius: 999px; font-size: 0.72rem; font-weight: bold; margin-top: 4px; }
+
+        .search-main { width: 100%; padding: 12px 16px; border: 1px solid #cbd5e1; border-radius: 8px; font-size: 0.98rem; margin-bottom: 18px; outline: none; background: white; }
+        .search-main:focus { border-color: #3b82f6; box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.15); }
+
+        .btn-action { padding: 7px 10px; border-radius: 6px; font-size: 0.8rem; font-weight: 700; border: none; cursor: pointer; display: inline-flex; align-items: center; gap: 5px; transition: 0.2s; text-decoration: none; }
+        .btn-entrada { background: #dcfce7; color: #166534; border: 1px solid #bbf7d0; }
+        .btn-entrada:hover { background: #10b981; color: white; }
+        .btn-saida { background: #fef3c7; color: #92400e; border: 1px solid #fde68a; }
+        .btn-saida:hover { background: #f59e0b; color: white; }
+        .btn-detalhes { background: #f1f5f9; color: #334155; border: 1px solid #cbd5e1; }
+        .btn-detalhes:hover { background: #334155; color: white; }
+        .btn-editar { background: #e0f2fe; color: #0369a1; border: 1px solid #bae6fd; }
+        .btn-editar:hover { background: #0284c7; color: white; }
+
+        /* Toasts / Alertas Inline */
+        .toast-banner { padding: 14px 18px; border-radius: 8px; margin-bottom: 18px; display: flex; justify-content: space-between; align-items: center; font-weight: 600; font-size: 0.95rem; }
+        .toast-sucesso { background: #dcfce7; color: #166534; border: 1px solid #86efac; }
+        .toast-erro { background: #fee2e2; color: #991b1b; border: 1px solid #fca5a5; }
+
+        /* Modais */
+        .modal-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(15, 23, 42, 0.68); z-index: 1000; display: none; align-items: center; justify-content: center; backdrop-filter: blur(3px); }
+        .modal-content { background: white; width: 94%; max-width: 620px; border-radius: 12px; box-shadow: 0 20px 25px -5px rgba(0,0,0,0.18); overflow: hidden; display: flex; flex-direction: column; max-height: 92vh; }
+        .modal-content-xl { max-width: 980px; }
+        .modal-header { padding: 16px 22px; color: white; display: flex; justify-content: space-between; align-items: center; font-weight: bold; font-size: 1.1rem; }
+        .modal-body { padding: 20px 22px; overflow-y: auto; }
+        .modal-footer { padding: 14px 22px; background: #f8fafc; border-top: 1px solid #e2e8f0; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px; }
+        .close-modal { cursor: pointer; font-size: 1.5rem; opacity: 0.85; }
+        .close-modal:hover { opacity: 1; }
+
+        .form-group { margin-bottom: 14px; }
+        .form-label { display: block; font-size: 0.84rem; font-weight: 700; color: #334155; margin-bottom: 5px; }
+        .form-control { width: 100%; padding: 9px 12px; border: 1px solid #cbd5e1; border-radius: 6px; font-size: 0.94rem; outline: none; }
+        .form-control:focus { border-color: #3b82f6; box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.12); }
+
+        .input-qtd-lote { width: 95px; padding: 7px 8px; border: 1px solid #cbd5e1; border-radius: 6px; font-weight: 700; text-align: center; }
+        .box-info { display: inline-block; padding: 3px 7px; border-radius: 5px; font-size: 0.73rem; font-weight: bold; margin-right: 3px; margin-bottom: 3px; }
+        .box-sede { background: #dbeafe; color: #1d4ed8; }
+        .box-comp { background: #ede9fe; color: #6d28d9; }
+        .box-regional { background: #ccfbf1; color: #0f766e; }
+
+        .row-saida-disabled { opacity: 0.65; background: #fafafa; }
+        .row-saida-selected { opacity: 1; background: #fefce8 !important; border-left: 4px solid #f59e0b; }
+
+        .badge-mov { padding: 4px 8px; border-radius: 6px; font-size: 0.74rem; font-weight: 700; display: inline-block; }
+        .badge-mov-entrada { background: #dcfce7; color: #166534; }
+        .badge-mov-saida { background: #fee2e2; color: #991b1b; }
+        .badge-mov-ajuste { background: #e0f2fe; color: #0369a1; }
+    </style>
+</head>
+<body>
+    <%- include('../partials/sidebar') %>
+
+    <main class="main-content">
+        <div class="page-header" style="margin-bottom: 20px;">
+            <div>
+                <h1>Insumos Sem Vínculo</h1>
+                <p style="color:#64748b; font-size: 1.02rem; margin-top: 4px;">
+                    Cadastre materiais avulsos, registre entradas/saídas únicas ou em lote, emita comprovantes de saída e acompanhe o histórico.
+                </p>
+            </div>
+            <div style="display: flex; gap: 10px; flex-wrap: wrap;">
+                <button type="button" class="btn" style="background: #10b981; color: white; padding: 10px 16px; font-weight: bold;" onclick="abrirModalEntradaLote()">
+                    <i class="fas fa-dolly-flatbed"></i> Múltiplas Entradas (Lote)
+                </button>
+                <button type="button" class="btn" style="background: #f59e0b; color: white; padding: 10px 16px; font-weight: bold;" onclick="abrirModalSaidaLote()">
+                    <i class="fas fa-truck-loading"></i> Múltiplas Saídas + Comprovante
+                </button>
+                <button type="button" class="btn btn-primary" style="background: #2563eb; padding: 10px 16px; font-weight: bold;" onclick="abrirModalCadastro()">
+                    <i class="fas fa-plus-circle"></i> Novo Insumo
+                </button>
+            </div>
+        </div>
+
+        <% if (sucesso) { %>
+            <div class="toast-banner toast-sucesso">
+                <span><i class="fas fa-check-circle"></i> <%= sucesso %></span>
+                <button type="button" onclick="this.parentElement.remove()" style="background:none; border:none; color:inherit; cursor:pointer; font-size:1.1rem;">&times;</button>
+            </div>
+        <% } %>
+
+        <% if (erro) { %>
+            <div class="toast-banner toast-erro">
+                <span><i class="fas fa-exclamation-triangle"></i> <%= erro %></span>
+                <button type="button" onclick="this.parentElement.remove()" style="background:none; border:none; color:inherit; cursor:pointer; font-size:1.1rem;">&times;</button>
+            </div>
+        <% } %>
+
+        <!-- FILTRO POR OFICINA -->
+        <div class="oficinas-top-bar">
+            <div class="oficinas-top-header">
+                <span style="font-weight: bold; color: #0f172a; font-size: 0.95rem;">
+                    <i class="fas fa-industry" style="color: #7c3aed; margin-right: 6px;"></i> Filtrar por Oficina / Setor:
+                </span>
+                <button type="button" onclick="limparFiltroOficinas()" id="btnLimparOficinas" style="display: none; background: #f1f5f9; border: 1px solid #cbd5e1; color: #475569; padding: 4px 12px; border-radius: 6px; font-size: 0.8rem; font-weight: bold; cursor: pointer;">
+                    <i class="fas fa-times"></i> Mostrar Todos
+                </button>
+            </div>
+            <div class="oficinas-chips-container">
+                <label class="oficina-chip-label">
+                    <input type="checkbox" class="oficina-check" value="uso geral" onchange="onOficinaChange(this)">
+                    <i class="fas fa-check-circle" style="display: none; font-size: 0.85rem;"></i>
+                    <span>Uso Geral</span>
+                </label>
+                <% (oficinas || []).forEach(of => { %>
+                    <label class="oficina-chip-label">
+                        <input type="checkbox" class="oficina-check" value="<%= of.nome.toLowerCase() %>" onchange="onOficinaChange(this)">
+                        <i class="fas fa-check-circle" style="display: none; font-size: 0.85rem;"></i>
+                        <span><%= of.nome %></span>
+                    </label>
+                <% }) %>
+            </div>
+        </div>
+
+        <input type="text" id="globalSearch" class="search-main" placeholder="🔍 Pesquisar por descrição do insumo, referência (Ref) ou oficina..." oninput="aplicarFiltros()">
+
+        <!-- 1. TABELA PRINCIPAL DE SALDOS E AÇÕES -->
+        <div class="card-panel">
+            <div class="card-header-custom">
+                <span><i class="fas fa-box-open"></i> Saldo Atual de Insumos Sem Vínculo (Clique no nome para Detalhes e Histórico)</span>
+                <span id="contadorInsumos" style="font-size: 0.85rem; font-weight: normal; color: #cbd5e1;"><%= insumos.length %> itens exibidos</span>
+            </div>
+            <div class="table-responsive">
+                <table class="table-custom">
+                    <thead>
+                        <tr>
+                            <th style="width: 30%;">Insumo (Clique para Detalhes)</th>
+                            <th style="width: 10%;">Ref</th>
+                            <th style="text-align: center; color: #2563eb; width: 9%;">Sede</th>
+                            <th style="text-align: center; color: #8b5cf6; width: 9%;">Complexo</th>
+                            <th style="text-align: center; color: #0f766e; width: 9%;">Regional</th>
+                            <th style="text-align: center; background: #f1f5f9; width: 10%;">Total Físico</th>
+                            <th style="text-align: center; width: 23%;">Ações Rápidas</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <% insumos.forEach(item => { %>
+                            <tr class="insumo-row"
+                                data-busca="<%= (item.descricao + ' ' + (item.ref || '') + ' ' + (item.oficina || '')).toLowerCase() %>"
+                                data-oficina="<%= (item.oficina || 'uso geral').toLowerCase() %>">
+                                <td>
+                                    <a href="/insumos-sem-vinculo/<%= item.id %>/detalhes" class="link-insumo">
+                                        <i class="fas fa-search-plus" style="font-size: 0.82rem;"></i> <%= item.descricao %> (<%= item.unidade %>)
+                                    </a>
+                                    <div>
+                                        <span class="oficina-tag-mini"><i class="fas fa-industry"></i> <%= item.oficina || 'Uso Geral' %></span>
+                                    </div>
+                                </td>
+                                <td>
+                                    <span style="background: #e2e8f0; padding: 3px 8px; border-radius: 4px; font-size: 0.8rem; font-weight: 600;">
+                                        <%= item.ref || 'S/REF' %>
+                                    </span>
+                                </td>
+                                <td style="text-align: center; color: #2563eb; font-weight: 700;"><%= item.qtd_sede %></td>
+                                <td style="text-align: center; color: #8b5cf6; font-weight: 700;"><%= item.qtd_complexo %></td>
+                                <td style="text-align: center; color: #0f766e; font-weight: 700;"><%= item.qtd_regional %></td>
+                                <td style="text-align: center; font-size: 1.05rem; font-weight: 800; background: #f8fafc; color: #0f172a;">
+                                    <%= item.total_geral %>
+                                </td>
+                                <td style="text-align: center;">
+                                    <div style="display: flex; gap: 5px; justify-content: center; flex-wrap: wrap;">
+                                        <button type="button" class="btn-action btn-entrada"
+                                            onclick="abrirModalEntradaLote(<%= item.id %>)"
+                                            title="Registrar Entrada deste Insumo">
+                                            <i class="fas fa-arrow-down"></i> Entrada
+                                        </button>
+                                        <button type="button" class="btn-action btn-saida"
+                                            onclick="abrirModalSaidaLote(<%= item.id %>)"
+                                            title="Registrar Saída e Emitir Comprovante">
+                                            <i class="fas fa-arrow-up"></i> Saída
+                                        </button>
+                                        <a href="/insumos-sem-vinculo/<%= item.id %>/detalhes" class="btn-action btn-detalhes" title="Ver Detalhes e Histórico do Insumo">
+                                            <i class="fas fa-eye"></i> Detalhes
+                                        </a>
+                                        <button type="button" class="btn-action btn-editar"
+                                            onclick='abrirModalEditar(<%- JSON.stringify(item) %>)'
+                                            title="Editar Cadastro">
+                                            <i class="fas fa-edit"></i>
+                                        </button>
+                                    </div>
+                                </td>
+                            </tr>
+                        <% }) %>
+                        <tr id="linhaSemResultados" style="<%= insumos.length === 0 ? '' : 'display: none;' %>">
+                            <td colspan="7" style="text-align: center; color: #64748b; padding: 35px;">
+                                Nenhum insumo sem vínculo encontrado. Clique em <strong>"Novo Insumo"</strong> para cadastrar.
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- 2. HISTÓRICO DE LOTES DE SAÍDA E EMISSÃO DE COMPROVANTES -->
+        <div class="card-panel">
+            <div class="card-header-custom" style="background: #b45309;">
+                <span><i class="fas fa-file-invoice"></i> Lotes de Saída Despachados (Comprovantes / PDF)</span>
+                <span style="font-size: 0.82rem; font-weight: normal; color: #fde68a;"><%= (lotesSaida || []).length %> lotes recentes</span>
+            </div>
+            <div class="table-responsive" style="max-height: 360px; overflow-y: auto;">
+                <table class="table-custom">
+                    <thead>
+                        <tr>
+                            <th style="width: 15%;">Data / Lote</th>
+                            <th style="width: 38%;">Materiais Despachados</th>
+                            <th style="width: 15%;">Entregue Por</th>
+                            <th style="width: 17%;">Recebido Por (Destino)</th>
+                            <th style="text-align: center; width: 15%;">Comprovante</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <% if (lotesSaida && lotesSaida.length > 0) { %>
+                            <% lotesSaida.forEach(lote => { %>
+                                <tr>
+                                    <td>
+                                        <strong style="color: #0f172a;"><%= new Date(lote.data).toLocaleString('pt-BR') %></strong>
+                                        <div style="font-size: 0.75rem; color: #64748b;">Lote #<%= lote.lote_id %></div>
+                                    </td>
+                                    <td>
+                                        <ul style="margin: 0; padding-left: 16px; font-size: 0.88rem;">
+                                            <% lote.itens.forEach(it => { %>
+                                                <li style="margin-bottom: 3px;">
+                                                    <a href="/insumos-sem-vinculo/<%= it.insumo_id %>/detalhes" style="color:#1e293b; font-weight:700; text-decoration:none;"><%= it.nome %></a>
+                                                    — <span style="color:#b45309; font-weight:bold; background:#fef3c7; padding:1px 6px; border-radius:4px;"><%= it.quantidade %> <%= it.unidade %></span>
+                                                    <small style="color:#64748b;">(<%= it.local %>)</small>
+                                                </li>
+                                            <% }) %>
+                                        </ul>
+                                        <% if (lote.observacao && lote.observacao !== '-') { %>
+                                            <div style="font-size: 0.78rem; color: #64748b; font-style: italic; margin-top: 4px;">Obs: "<%= lote.observacao %>"</div>
+                                        <% } %>
+                                    </td>
+                                    <td style="color: #475569;"><%= lote.entregue_por %></td>
+                                    <td style="color: #0f172a; font-weight: 700;"><%= lote.recebido_por %></td>
+                                    <td style="text-align: center;">
+                                        <a href="/insumos-sem-vinculo/comprovante/<%= lote.lote_id %>" target="_blank" class="btn" style="background: #475569; color: white; font-size: 0.8rem; padding: 7px 12px; border-radius: 6px; text-decoration: none; display: inline-flex; align-items: center; gap: 5px;">
+                                            <i class="fas fa-print"></i> Tirar PDF
+                                        </a>
+                                    </td>
+                                </tr>
+                            <% }) %>
+                        <% } else { %>
+                            <tr>
+                                <td colspan="5" style="text-align: center; color: #64748b; padding: 28px;">
+                                    Nenhuma saída registrada até o momento.
+                                </td>
+                            </tr>
+                        <% } %>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- 3. HISTÓRICO GERAL DE MOVIMENTAÇÕES -->
+        <div class="card-panel">
+            <div class="card-header-custom" style="background: #334155;">
+                <span><i class="fas fa-history"></i> Histórico Geral de Entradas, Saídas e Ajustes (Sem Vínculo)</span>
+                <span style="font-size: 0.82rem; font-weight: normal; color: #cbd5e1;"><%= movimentacoes.length %> registros</span>
+            </div>
+            <div class="table-responsive" style="max-height: 400px; overflow-y: auto;">
+                <table class="table-custom">
+                    <thead>
+                        <tr>
+                            <th style="width: 14%;">Data / Hora</th>
+                            <th style="width: 14%;">Tipo / Local</th>
+                            <th style="width: 24%;">Insumo</th>
+                            <th style="text-align: center; width: 12%;">Movimentação</th>
+                            <th style="width: 16%;">Responsável / Recebedor</th>
+                            <th style="width: 20%;">Observação / Comprovante</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <% if (movimentacoes && movimentacoes.length > 0) { %>
+                            <% movimentacoes.forEach(m => {
+                                let badgeClass = 'badge-mov-ajuste';
+                                if (m.tipo === 'ENTRADA') badgeClass = 'badge-mov-entrada';
+                                else if (m.tipo === 'SAIDA') badgeClass = 'badge-mov-saida';
+                            %>
+                                <tr>
+                                    <td style="font-size: 0.84rem; color: #64748b;">
+                                        <%= new Date(m.data_movimentacao).toLocaleString('pt-BR') %>
+                                    </td>
+                                    <td>
+                                        <span class="badge-mov <%= badgeClass %>"><%= m.tipo %></span>
+                                        <div style="font-size: 0.78rem; color: #475569; font-weight: bold; margin-top: 3px;">
+                                            <i class="fas fa-map-marker-alt"></i> <%= m.local %>
+                                        </div>
+                                    </td>
+                                    <td>
+                                        <a href="/insumos-sem-vinculo/<%= m.insumo_id %>/detalhes" style="color:#0f172a; font-weight:bold; text-decoration:none;">
+                                            <%= m.insumo_nome %> (<%= m.unidade %>)
+                                        </a>
+                                        <div style="font-size: 0.78rem; color: #64748b;">Ref: <%= m.ref %> | <%= m.oficina %></div>
+                                    </td>
+                                    <td style="text-align: center;">
+                                        <span style="font-weight: 800; font-size: 1.05rem; color: <%= Number(m.quantidade) > 0 ? '#10b981' : (Number(m.quantidade) < 0 ? '#ef4444' : '#64748b') %>;">
+                                            <%= Number(m.quantidade) > 0 ? '+' + m.quantidade : m.quantidade %>
+                                        </span>
+                                        <% if (m.saldo_momento !== null && m.saldo_momento !== undefined) { %>
+                                            <div style="font-size: 0.72rem; color: #64748b;">Estoque na Hora: <strong><%= m.saldo_momento %></strong></div>
+                                        <% } %>
+                                    </td>
+                                    <td style="font-size: 0.85rem;">
+                                        <div><strong>Reg.:</strong> <%= m.responsavel || 'Sistema' %></div>
+                                        <% if (m.retirado_por) { %>
+                                            <div style="color: #0f172a;"><strong>Recebedor:</strong> <%= m.retirado_por %></div>
+                                        <% } %>
+                                    </td>
+                                    <td style="font-size: 0.85rem; color: #475569;">
+                                        <i>"<%= m.observacao || '-' %>"</i>
+                                        <% if (m.tipo === 'SAIDA') { %>
+                                            <br>
+                                            <a href="/insumos-sem-vinculo/comprovante/<%= m.lote_id || m.id %>" target="_blank" style="display:inline-block; margin-top:4px; font-size:0.75rem; background:#fef3c7; color:#b45309; padding:2px 7px; border-radius:4px; font-weight:bold; text-decoration:none;">
+                                                <i class="fas fa-print"></i> Comprovante
+                                            </a>
+                                        <% } %>
+                                        <% if (m.documento_url) { %>
+                                            <br>
+                                            <a href="<%= m.documento_url %>" target="_blank" style="display:inline-block; margin-top:4px; font-size:0.75rem; background:#e2e8f0; color:#2563eb; padding:2px 7px; border-radius:4px; font-weight:bold; text-decoration:none;">
+                                                <i class="fas fa-file-pdf"></i> Ver PDF
+                                            </a>
+                                        <% } %>
+                                    </td>
+                                </tr>
+                            <% }) %>
+                        <% } else { %>
+                            <tr>
+                                <td colspan="6" style="text-align: center; color: #64748b; padding: 30px;">
+                                    Nenhuma movimentação registrada ainda.
+                                </td>
+                            </tr>
+                        <% } %>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </main>
+
+    <!-- MODAL 1: CRIAR NOVO INSUMO -->
+    <div id="modalCadastro" class="modal-overlay">
+        <div class="modal-content">
+            <div class="modal-header" style="background: #2563eb;">
+                <span><i class="fas fa-plus-circle"></i> Cadastrar Novo Insumo Sem Vínculo</span>
+                <span class="close-modal" onclick="fecharModal('modalCadastro')">&times;</span>
+            </div>
+            <form action="/insumos-sem-vinculo/criar" method="POST">
+                <div class="modal-body">
+                    <div class="form-group">
+                        <label class="form-label">Descrição / Nome do Material <span style="color:#ef4444;">*</span></label>
+                        <input type="text" name="descricao" class="form-control" placeholder="Ex: Lixa para Madeira nº 120, Parafuso Soberbo..." required>
+                    </div>
+                    <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 12px;">
+                        <div class="form-group">
+                            <label class="form-label">Unidade <span style="color:#ef4444;">*</span></label>
+                            <input type="text" name="unidade" class="form-control" value="UN" placeholder="UN, KG, M, CX, L..." required>
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">Referência (Ref)</label>
+                            <input type="text" name="ref" class="form-control" placeholder="Opcional">
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">Oficina / Setor</label>
+                            <select name="oficina" class="form-control">
+                                <option value="Uso Geral">Uso Geral</option>
+                                <% (oficinas || []).forEach(of => { %>
+                                    <option value="<%= of.nome %>"><%= of.nome %></option>
+                                <% }) %>
+                            </select>
+                        </div>
+                    </div>
+                    <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 14px; margin-top: 6px;">
+                        <span style="font-size: 0.85rem; font-weight: bold; color: #0f172a; display: block; margin-bottom: 10px;">
+                            <i class="fas fa-warehouse"></i> Saldo Inicial no Estoque (Opcional):
+                        </span>
+                        <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 12px;">
+                            <div>
+                                <label class="form-label" style="color:#2563eb;">Qtd. Sede</label>
+                                <input type="number" name="qtd_sede" step="0.01" min="0" value="0" class="form-control">
+                            </div>
+                            <div>
+                                <label class="form-label" style="color:#8b5cf6;">Qtd. Complexo</label>
+                                <input type="number" name="qtd_complexo" step="0.01" min="0" value="0" class="form-control">
+                            </div>
+                            <div>
+                                <label class="form-label" style="color:#0f766e;">Qtd. Regional</label>
+                                <input type="number" name="qtd_regional" step="0.01" min="0" value="0" class="form-control">
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer" style="justify-content: flex-end;">
+                    <button type="button" class="btn" style="background:#e2e8f0; color:#475569;" onclick="fecharModal('modalCadastro')">Cancelar</button>
+                    <button type="submit" class="btn btn-primary" style="background:#2563eb;"><i class="fas fa-save"></i> Cadastrar Insumo</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- MODAL 2: EDITAR CADASTRO -->
+    <div id="modalEditar" class="modal-overlay">
+        <div class="modal-content">
+            <div class="modal-header" style="background: #0284c7;">
+                <span><i class="fas fa-edit"></i> Editar Insumo Sem Vínculo</span>
+                <span class="close-modal" onclick="fecharModal('modalEditar')">&times;</span>
+            </div>
+            <form id="formEditarInsumo" method="POST">
+                <div class="modal-body">
+                    <div class="form-group">
+                        <label class="form-label">Descrição / Nome do Material <span style="color:#ef4444;">*</span></label>
+                        <input type="text" name="descricao" id="edit_descricao" class="form-control" required>
+                    </div>
+                    <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 12px;">
+                        <div class="form-group">
+                            <label class="form-label">Unidade <span style="color:#ef4444;">*</span></label>
+                            <input type="text" name="unidade" id="edit_unidade" class="form-control" required>
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">Referência (Ref)</label>
+                            <input type="text" name="ref" id="edit_ref" class="form-control">
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">Oficina / Setor</label>
+                            <select name="oficina" id="edit_oficina" class="form-control">
+                                <option value="Uso Geral">Uso Geral</option>
+                                <% (oficinas || []).forEach(of => { %>
+                                    <option value="<%= of.nome %>"><%= of.nome %></option>
+                                <% }) %>
+                            </select>
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer" style="justify-content: flex-end;">
+                    <button type="button" class="btn" style="background:#e2e8f0; color:#475569;" onclick="fecharModal('modalEditar')">Cancelar</button>
+                    <button type="submit" class="btn btn-primary" style="background:#0284c7;"><i class="fas fa-save"></i> Salvar Alterações</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- MODAL 3: MÚLTIPLAS ENTRADAS EM LOTE -->
+    <div id="modalEntradaLote" class="modal-overlay">
+        <div class="modal-content modal-content-xl">
+            <div class="modal-header" style="background: #10b981;">
+                <span><i class="fas fa-dolly-flatbed"></i> Registrar Entradas (Única ou em Lote)</span>
+                <span class="close-modal" onclick="fecharModal('modalEntradaLote')">&times;</span>
+            </div>
+            <form action="/insumos-sem-vinculo/entrada/lote" method="POST" onsubmit="return validarEntradaLote()">
+                <div class="modal-body">
+                    <input type="text" id="buscaModalEntrada" class="form-control" placeholder="🔍 Filtrar insumos na lista de entrada..." oninput="filtrarTabelaModalEntrada()" style="margin-bottom: 12px;">
+
+                    <div class="table-responsive" style="max-height: 46vh; border: 1px solid #e2e8f0; border-radius: 8px;">
+                        <table class="table-custom">
+                            <thead>
+                                <tr>
+                                    <th style="width: 36%;">Insumo</th>
+                                    <th style="width: 12%;">Saldos Atuais</th>
+                                    <th style="text-align: center; color: #2563eb; width: 17%;">+ Entrada Sede</th>
+                                    <th style="text-align: center; color: #8b5cf6; width: 17%;">+ Entrada Complexo</th>
+                                    <th style="text-align: center; color: #0f766e; width: 18%;">+ Entrada Regional</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <% insumos.forEach(item => { %>
+                                    <tr class="tr-modal-entrada" id="tr_ent_<%= item.id %>" data-busca="<%= (item.descricao + ' ' + (item.ref || '') + ' ' + (item.oficina || '')).toLowerCase() %>">
+                                        <td>
+                                            <input type="hidden" name="insumos_ids[]" value="<%= item.id %>">
+                                            <strong><%= item.descricao %></strong> (<%= item.unidade %>)
+                                            <div style="font-size: 0.75rem; color: #64748b;">Ref: <%= item.ref || 'S/REF' %> | <%= item.oficina || 'Uso Geral' %></div>
+                                        </td>
+                                        <td>
+                                            <span class="box-info box-sede">S: <%= item.qtd_sede %></span>
+                                            <span class="box-info box-comp">C: <%= item.qtd_complexo %></span>
+                                            <span class="box-info box-regional">R: <%= item.qtd_regional %></span>
+                                        </td>
+                                        <td style="text-align: center;">
+                                            <input type="number" name="qtd_sede[]" id="ent_sede_<%= item.id %>" step="0.01" min="0" placeholder="0" class="input-qtd-lote input-ent-valor" style="border-color: #bfdbfe;">
+                                        </td>
+                                        <td style="text-align: center;">
+                                            <input type="number" name="qtd_complexo[]" step="0.01" min="0" placeholder="0" class="input-qtd-lote input-ent-valor" style="border-color: #ddd6fe;">
+                                        </td>
+                                        <td style="text-align: center;">
+                                            <input type="number" name="qtd_regional[]" step="0.01" min="0" placeholder="0" class="input-qtd-lote input-ent-valor" style="border-color: #99f6e4;">
+                                        </td>
+                                    </tr>
+                                <% }) %>
+                            </tbody>
+                        </table>
+                    </div>
+
+                    <div style="margin-top: 12px;">
+                        <label class="form-label">Observação da Entrada (Opcional):</label>
+                        <input type="text" name="observacao" class="form-control" placeholder="Ex: Recebimento de nota fiscal, reposição mensal, etc.">
+                    </div>
+
+                    <div id="erroEntradaLote" style="display:none; margin-top: 10px; background:#fee2e2; color:#991b1b; padding:10px 12px; border-radius:6px; font-weight:600; font-size:0.86rem;"></div>
+                </div>
+                <div class="modal-footer">
+                    <span style="font-size: 0.82rem; color: #64748b;">Preencha apenas as quantidades dos itens que estão entrando.</span>
+                    <div style="display: flex; gap: 10px;">
+                        <button type="button" class="btn" style="background:#e2e8f0; color:#475569;" onclick="fecharModal('modalEntradaLote')">Cancelar</button>
+                        <button type="submit" class="btn" style="background:#10b981; color:white; font-weight:bold;"><i class="fas fa-save"></i> Confirmar e Salvar Entradas</button>
+                    </div>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- MODAL 4: MÚLTIPLAS SAÍDAS EM LOTE + GERAÇÃO DE COMPROVANTE -->
+    <div id="modalSaidaLote" class="modal-overlay">
+        <div class="modal-content modal-content-xl">
+            <div class="modal-header" style="background: #f59e0b;">
+                <span><i class="fas fa-truck-loading"></i> Registrar Saída (Única ou em Lote) e Gerar Comprovante</span>
+                <span class="close-modal" onclick="fecharModal('modalSaidaLote')">&times;</span>
+            </div>
+            <form action="/insumos-sem-vinculo/saida/lote" method="POST" id="formSaidaLote" target="_blank" onsubmit="return submeterSaidaComRecibo()">
+                <div class="modal-body">
+                    <input type="text" id="buscaModalSaida" class="form-control" placeholder="🔍 Filtrar insumos disponíveis para saída..." oninput="filtrarTabelaModalSaida()" style="margin-bottom: 12px;">
+
+                    <div class="table-responsive" style="max-height: 42vh; border: 1px solid #e2e8f0; border-radius: 8px;">
+                        <table class="table-custom">
+                            <thead>
+                                <tr>
+                                    <th style="width: 6%; text-align: center;"><i class="fas fa-check-square"></i></th>
+                                    <th style="width: 32%;">1. Insumo</th>
+                                    <th style="width: 20%;">Saldos Disponíveis</th>
+                                    <th style="width: 24%;">2. Origem da Baixa</th>
+                                    <th style="width: 18%;">3. Qtd a Sair</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <% insumos.forEach(item => { %>
+                                    <tr class="tr-modal-saida row-saida-disabled" id="tr_sai_<%= item.id %>" data-busca="<%= (item.descricao + ' ' + (item.ref || '') + ' ' + (item.oficina || '')).toLowerCase() %>">
+                                        <td style="text-align: center;">
+                                            <% if (item.total_geral > 0) { %>
+                                                <input type="checkbox" name="selecionados" value="<%= item.id %>" id="chk_sai_<%= item.id %>" class="chk-saida-lote" style="transform: scale(1.35); accent-color: #f59e0b; cursor: pointer;" onchange="toggleLinhaSaida('<%= item.id %>')">
+                                            <% } else { %>
+                                                <i class="fas fa-ban" style="color: #cbd5e1;" title="Sem saldo disponível"></i>
+                                            <% } %>
+                                        </td>
+                                        <td>
+                                            <strong><%= item.descricao %></strong> (<%= item.unidade %>)
+                                            <div style="font-size: 0.75rem; color: #64748b;">Ref: <%= item.ref || 'S/REF' %> | <%= item.oficina || 'Uso Geral' %></div>
+                                        </td>
+                                        <td>
+                                            <span class="box-info box-sede">Sede: <%= item.qtd_sede %></span>
+                                            <span class="box-info box-comp">Comp: <%= item.qtd_complexo %></span>
+                                            <span class="box-info box-regional">Reg: <%= item.qtd_regional %></span>
+                                        </td>
+                                        <td>
+                                            <select name="origem_<%= item.id %>" id="origem_sai_<%= item.id %>" class="form-control" disabled onchange="atualizarMaxSaida('<%= item.id %>')">
+                                                <option value="" disabled selected>Escolha de onde tirar...</option>
+                                                <% if (item.qtd_sede > 0) { %><option value="SEDE" data-saldo="<%= item.qtd_sede %>">Almox. Sede (<%= item.qtd_sede %> disp.)</option><% } %>
+                                                <% if (item.qtd_complexo > 0) { %><option value="COMPLEXO" data-saldo="<%= item.qtd_complexo %>">Almox. Complexo (<%= item.qtd_complexo %> disp.)</option><% } %>
+                                                <% if (item.qtd_regional > 0) { %><option value="REGIONAL" data-saldo="<%= item.qtd_regional %>">Almox. Regional (<%= item.qtd_regional %> disp.)</option><% } %>
+                                            </select>
+                                        </td>
+                                        <td>
+                                            <input type="number" name="qtd_<%= item.id %>" id="qtd_sai_<%= item.id %>" step="0.01" min="0.01" value="1" class="form-control" style="font-weight: bold;" disabled oninput="validarInputMaxSaida(this)">
+                                            <small id="max_info_sai_<%= item.id %>" style="font-size: 0.72rem; color: #059669; display: block;"></small>
+                                        </td>
+                                    </tr>
+                                <% }) %>
+                            </tbody>
+                        </table>
+                    </div>
+
+                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-top: 14px; background: #f8fafc; padding: 14px; border-radius: 8px; border: 1px solid #e2e8f0;">
+                        <div>
+                            <label class="form-label"><i class="fas fa-signature"></i> Recebido por (Requisitante / Destino) <span style="color:#ef4444;">*</span></label>
+                            <input type="text" name="recebido_por" id="saida_recebido_por" class="form-control" placeholder="Digite o nome de quem está retirando" style="border: 2px solid #f59e0b;" required>
+                        </div>
+                        <div>
+                            <label class="form-label">Observação / Finalidade (Opcional):</label>
+                            <input type="text" name="observacao" class="form-control" placeholder="Ex: Manutenção predial, uso na marcenaria, etc.">
+                        </div>
+                    </div>
+
+                    <div id="erroSaidaLote" style="display:none; margin-top: 10px; background:#fee2e2; color:#991b1b; padding:10px 12px; border-radius:6px; font-weight:600; font-size:0.86rem;"></div>
+                </div>
+                <div class="modal-footer">
+                    <span style="font-size: 0.82rem; color: #64748b;">
+                        <i class="fas fa-print"></i> O Comprovante de Saída será aberto automaticamente em uma nova aba para impressão/PDF.
+                    </span>
+                    <div style="display: flex; gap: 10px;">
+                        <button type="button" class="btn" style="background:#e2e8f0; color:#475569;" onclick="fecharModal('modalSaidaLote')">Cancelar</button>
+                        <button type="submit" class="btn" style="background:#f59e0b; color:white; font-weight:bold;"><i class="fas fa-file-pdf"></i> Confirmar Saída e Gerar Comprovante</button>
+                    </div>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <script>
+        function abrirModalCadastro() {
+            document.getElementById('modalCadastro').style.display = 'flex';
+        }
+
+        function abrirModalEditar(item) {
+            document.getElementById('formEditarInsumo').action = `/insumos-sem-vinculo/${item.id}/editar`;
+            document.getElementById('edit_descricao').value = item.descricao || '';
+            document.getElementById('edit_unidade').value = item.unidade || 'UN';
+            document.getElementById('edit_ref').value = item.ref || '';
+            document.getElementById('edit_oficina').value = item.oficina || 'Uso Geral';
+            document.getElementById('modalEditar').style.display = 'flex';
+        }
+
+        function abrirModalEntradaLote(insumoIdFoco = null) {
+            document.getElementById('buscaModalEntrada').value = '';
+            document.getElementById('erroEntradaLote').style.display = 'none';
+            document.querySelectorAll('.input-ent-valor').forEach(inp => inp.value = '');
+            filtrarTabelaModalEntrada();
+            document.getElementById('modalEntradaLote').style.display = 'flex';
+
+            if (insumoIdFoco) {
+                const tr = document.getElementById('tr_ent_' + insumoIdFoco);
+                const inp = document.getElementById('ent_sede_' + insumoIdFoco);
+                if (tr) tr.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                if (inp) setTimeout(() => inp.focus(), 150);
+            }
+        }
+
+        function filtrarTabelaModalEntrada() {
+            const termo = document.getElementById('buscaModalEntrada').value.toLowerCase().trim();
+            document.querySelectorAll('.tr-modal-entrada').forEach(tr => {
+                const busca = tr.getAttribute('data-busca') || '';
+                tr.style.display = (!termo || busca.includes(termo)) ? '' : 'none';
+            });
+        }
+
+        function validarEntradaLote() {
+            let algumPreenchido = false;
+            document.querySelectorAll('.input-ent-valor').forEach(inp => {
+                if (parseFloat(inp.value) > 0) algumPreenchido = true;
+            });
+            const boxErro = document.getElementById('erroEntradaLote');
+            if (!algumPreenchido) {
+                boxErro.textContent = 'Preencha uma quantidade maior que zero em pelo menos um insumo.';
+                boxErro.style.display = 'block';
+                return false;
+            }
+            boxErro.style.display = 'none';
+            return true;
+        }
+
+        function abrirModalSaidaLote(insumoIdPreSelecionado = null) {
+            document.getElementById('buscaModalSaida').value = '';
+            document.getElementById('erroSaidaLote').style.display = 'none';
+            filtrarTabelaModalSaida();
+
+            document.querySelectorAll('.chk-saida-lote').forEach(chk => {
+                chk.checked = false;
+                toggleLinhaSaida(chk.value);
+            });
+
+            document.getElementById('modalSaidaLote').style.display = 'flex';
+
+            if (insumoIdPreSelecionado) {
+                const chk = document.getElementById('chk_sai_' + insumoIdPreSelecionado);
+                const tr = document.getElementById('tr_sai_' + insumoIdPreSelecionado);
+                if (chk) {
+                    chk.checked = true;
+                    toggleLinhaSaida(insumoIdPreSelecionado);
+                }
+                if (tr) tr.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            }
+        }
+
+        function filtrarTabelaModalSaida() {
+            const termo = document.getElementById('buscaModalSaida').value.toLowerCase().trim();
+            document.querySelectorAll('.tr-modal-saida').forEach(tr => {
+                const busca = tr.getAttribute('data-busca') || '';
+                tr.style.display = (!termo || busca.includes(termo)) ? '' : 'none';
+            });
+        }
+
+        function toggleLinhaSaida(id) {
+            const chk = document.getElementById('chk_sai_' + id);
+            const tr = document.getElementById('tr_sai_' + id);
+            const sel = document.getElementById('origem_sai_' + id);
+            const qtd = document.getElementById('qtd_sai_' + id);
+            const info = document.getElementById('max_info_sai_' + id);
+
+            if (!chk) return;
+
+            if (chk.checked) {
+                tr.classList.remove('row-saida-disabled');
+                tr.classList.add('row-saida-selected');
+                sel.disabled = false;
+                qtd.disabled = false;
+                if (!sel.value && sel.options.length > 1) {
+                    sel.selectedIndex = 1;
+                }
+                atualizarMaxSaida(id);
+            } else {
+                tr.classList.add('row-saida-disabled');
+                tr.classList.remove('row-saida-selected');
+                sel.disabled = true;
+                qtd.disabled = true;
+                info.textContent = '';
+            }
+        }
+
+        function atualizarMaxSaida(id) {
+            const sel = document.getElementById('origem_sai_' + id);
+            const qtd = document.getElementById('qtd_sai_' + id);
+            const info = document.getElementById('max_info_sai_' + id);
+
+            if (sel && sel.value) {
+                const opt = sel.options[sel.selectedIndex];
+                const saldo = parseFloat(opt.getAttribute('data-saldo') || '0');
+                qtd.max = saldo;
+                if (parseFloat(qtd.value) > saldo) qtd.value = saldo;
+                info.textContent = `Máx disp.: ${saldo}`;
+            }
+        }
+
+        function validarInputMaxSaida(input) {
+            const max = parseFloat(input.max);
+            const val = parseFloat(input.value);
+            if (!isNaN(max) && val > max) {
+                input.value = max;
+            }
+        }
+
+        function submeterSaidaComRecibo() {
+            const selecionados = document.querySelectorAll('.chk-saida-lote:checked');
+            const boxErro = document.getElementById('erroSaidaLote');
+
+            if (selecionados.length === 0) {
+                boxErro.textContent = 'Selecione pelo menos um insumo para dar saída.';
+                boxErro.style.display = 'block';
+                return false;
+            }
+
+            for (const chk of selecionados) {
+                const id = chk.value;
+                const sel = document.getElementById('origem_sai_' + id);
+                const qtd = document.getElementById('qtd_sai_' + id);
+                const val = parseFloat(qtd.value);
+                const max = parseFloat(qtd.max);
+
+                if (!sel.value) {
+                    boxErro.textContent = 'Escolha a origem de todos os itens selecionados.';
+                    boxErro.style.display = 'block';
+                    return false;
+                }
+                if (isNaN(val) || val <= 0 || (!isNaN(max) && val > max)) {
+                    boxErro.textContent = 'Verifique as quantidades informadas nos itens selecionados.';
+                    boxErro.style.display = 'block';
+                    return false;
+                }
+            }
+
+            const recebidoPor = document.getElementById('saida_recebido_por').value.trim();
+            if (!recebidoPor) {
+                boxErro.textContent = 'Informe quem está recebendo/retirando o material.';
+                boxErro.style.display = 'block';
+                return false;
+            }
+
+            boxErro.style.display = 'none';
+            setTimeout(() => {
+                fecharModal('modalSaidaLote');
+                window.location.reload();
+            }, 1200);
+            return true;
+        }
+
+        function fecharModal(id) {
+            document.getElementById(id).style.display = 'none';
+        }
+
+        function onOficinaChange(checkbox) {
+            const label = checkbox.closest('.oficina-chip-label');
+            const icon = label.querySelector('i');
+            if (checkbox.checked) {
+                label.classList.add('active');
+                if (icon) icon.style.display = 'inline-block';
+            } else {
+                label.classList.remove('active');
+                if (icon) icon.style.display = 'none';
+            }
+            aplicarFiltros();
+        }
+
+        function limparFiltroOficinas() {
+            document.querySelectorAll('.oficina-check').forEach(cb => {
+                cb.checked = false;
+                const label = cb.closest('.oficina-chip-label');
+                const icon = label.querySelector('i');
+                label.classList.remove('active');
+                if (icon) icon.style.display = 'none';
+            });
+            aplicarFiltros();
+        }
+
+        function aplicarFiltros() {
+            const termo = document.getElementById('globalSearch').value.toLowerCase().trim();
+            const oficinasSelecionadas = Array.from(document.querySelectorAll('.oficina-check:checked')).map(c => c.value);
+
+            const btnLimpar = document.getElementById('btnLimparOficinas');
+            if (btnLimpar) btnLimpar.style.display = oficinasSelecionadas.length > 0 ? 'inline-block' : 'none';
+
+            let visiveis = 0;
+            document.querySelectorAll('.insumo-row').forEach(row => {
+                const busca = row.getAttribute('data-busca') || '';
+                const oficina = row.getAttribute('data-oficina') || '';
+
+                const bateTexto = !termo || busca.includes(termo);
+                const bateOficina = oficinasSelecionadas.length === 0 || oficinasSelecionadas.includes(oficina);
+
+                if (bateTexto && bateOficina) {
+                    row.style.display = '';
+                    visiveis++;
+                } else {
+                    row.style.display = 'none';
+                }
+            });
+
+            const contador = document.getElementById('contadorInsumos');
+            if (contador) contador.textContent = `${visiveis} itens exibidos`;
+
+            const linhaVazia = document.getElementById('linhaSemResultados');
+            if (linhaVazia) linhaVazia.style.display = visiveis === 0 ? 'table-row' : 'none';
+        }
+    </script>
+</body>
+</html>

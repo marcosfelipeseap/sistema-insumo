@@ -25,7 +25,7 @@ exports.getEstoqueData = async () => {
     const abaFerragens = abasVisiveis[4];
     const abaLimpeza = abasVisiveis[5];
     const abaEpis = abasVisiveis[6];
-    const abaMaquinario = abasVisiveis[7];
+    const abaMaquinario = abasVisiveis[9];
 
     const mdf = [];
 

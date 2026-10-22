@@ -1,6 +1,6 @@
 const express = require('express');
 const path = require('path');
-const cookieSession = require('cookie-session'); // Trocamos para cookie-session!
+const cookieSession = require('cookie-session');
 require('dotenv').config();
 
 const app = express();
@@ -25,7 +25,6 @@ app.use((req, res, next) => {
     res.locals.erro = req.session.erro || null;
     res.locals.sucesso = req.session.sucesso || null;
     
-    // O cookie-session não tem "delete" fácil para variáveis únicas, então zeramos reatribuindo
     req.session.erro = null;
     req.session.sucesso = null;
     next();
@@ -37,28 +36,26 @@ const adminRoutes = require('./routes/admin');
 const perfilRoutes = require('./routes/perfil');
 const processoRoutes = require('./routes/processos');
 const estoqueRoutes = require('./routes/estoque');
+const insumosSemVinculoRoutes = require('./routes/insumosSemVinculo');
 const envioRoutes = require('./routes/envios');
 const balancoRoutes = require('./routes/balanco');
-const simuladorRoutes = require('./routes/simulador'); 
+const simuladorRoutes = require('./routes/simulador');
+const almoxarifadoRoutes = require('./routes/almoxarifado');
 
 // Importação dos Middlewares de Segurança
 const { requireLogin } = require('./middlewares/auth');
 
-
-// Nas declarações de rotas (junto com admin, auth, balanco, etc)
-const almoxarifadoRoutes = require('./routes/almoxarifado');
-
-// No uso das rotas
-app.use('/almoxarifado', almoxarifadoRoutes);
 // Integração das Rotas na Aplicação
+app.use('/almoxarifado', almoxarifadoRoutes);
 app.use('/', authRoutes);
 app.use('/admin', requireLogin, adminRoutes);
 app.use('/perfil', requireLogin, perfilRoutes);
 app.use('/processos', requireLogin, processoRoutes);
 app.use('/estoque', requireLogin, estoqueRoutes);
+app.use('/insumos-sem-vinculo', requireLogin, insumosSemVinculoRoutes);
 app.use('/envios', requireLogin, envioRoutes);
 app.use('/balanco', requireLogin, balancoRoutes);
-app.use('/simulador', requireLogin, simuladorRoutes); 
+app.use('/simulador', requireLogin, simuladorRoutes);
 
 app.get('/', (req, res) => {
     if (req.session.user && req.session.user.cargo === 'Monitor') {

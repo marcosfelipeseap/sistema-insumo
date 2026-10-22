@@ -3,7 +3,8 @@ const BalancoService = require('../services/balancoService');
 const balancoController = {
     index: async (req, res) => {
         try {
-            const dados = await BalancoService.obterDadosBalanco();
+            const oficinaId = req.query.oficina || null;
+            const dados = await BalancoService.obterDadosBalanco(oficinaId);
             res.render('balanco/index', { dados, user: res.locals.user });
         } catch (error) {
             console.error(error);

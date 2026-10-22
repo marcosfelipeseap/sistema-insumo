@@ -7,7 +7,7 @@
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <style>
         .card-panel { background: white; border-radius: 12px; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05); overflow: hidden; border: 1px solid #e2e8f0; margin-bottom: 30px; }
-        .card-header-custom { background: #1e293b; color: white; padding: 18px 24px; font-weight: bold; font-size: 1.1rem; display: flex; align-items: center; justify-content: space-between; }
+        .card-header-custom { background: #1e293b; color: white; padding: 18px 24px; font-weight: bold; font-size: 1.1rem; display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 10px; }
         
         .table-responsive { width: 100%; overflow-x: auto; }
         .table-custom { width: 100%; border-collapse: collapse; }
@@ -27,6 +27,10 @@
         .oficina-chip-label input { display: none; }
         .oficina-chip-label.active { background: #7c3aed; color: white; border-color: #6d28d9; box-shadow: 0 2px 6px rgba(124, 58, 237, 0.25); }
         .oficina-tag-mini { display: inline-block; background: #ede9fe; color: #6d28d9; padding: 2px 8px; border-radius: 999px; font-size: 0.72rem; font-weight: bold; margin-top: 4px; margin-right: 4px; }
+
+        /* Destaque para Insumos Sem Vínculo */
+        .badge-sem-vinculo { display: inline-block; background: #fef3c7; color: #b45309; border: 1px solid #fde68a; padding: 2px 8px; border-radius: 999px; font-size: 0.72rem; font-weight: bold; margin-left: 6px; }
+        .row-sem-vinculo { background-color: #fffdf4 !important; }
 
         .filter-panel { background: #f8fafc; border-radius: 8px; margin-bottom: 20px; border: 1px solid #cbd5e1; }
         .accordion-header { cursor: pointer; padding: 15px 20px; display: flex; justify-content: space-between; align-items: center; font-weight: bold; color: #0f172a; transition: background 0.2s; border-radius: 8px; }
@@ -51,25 +55,35 @@
         <div class="page-header" style="margin-bottom: 20px;">
             <div>
                 <h1>Almoxarifado Central</h1>
-                <p style="color:#64748b; font-size: 1.05rem; margin-top: 5px;">Controle unificado de insumos da Sede, Complexo e Regional.</p>
+                <p style="color:#64748b; font-size: 1.05rem; margin-top: 5px;">Controle unificado de insumos da Sede, Complexo, Regional e Avulsos.</p>
             </div>
-            <div style="display: flex; gap: 12px;">
-                <a href="/estoque/entrada/nova" class="btn btn-primary" style="background: #10b981; padding: 10px 20px;">
+            <div style="display: flex; gap: 12px; flex-wrap: wrap;">
+                <a href="/estoque/entrada/nova" class="btn" style="background: #10b981; color: white; padding: 10px 20px; font-weight: bold;">
                     <i class="fas fa-plus-circle"></i> Registrar Nova Entrada
                 </a>
-                <a href="/processos" class="btn" style="background:#e2e8f0; color:#334155;"><i class="fas fa-folder-open"></i> Ver Processos</a>
+                <a href="/insumos-sem-vinculo" class="btn" style="background: #f59e0b; color: white; padding: 10px 20px; font-weight: bold;">
+                    <i class="fas fa-box-open"></i> Gerenciar Insumos Sem Vínculo
+                </a>
             </div>
         </div>
 
-        <!-- FILTRO DE OFICINAS NO TOPO -->
+        <!-- FILTRO DE OFICINAS E BOTÃO DE EXIBIÇÃO DE SEM VÍNCULO NO TOPO -->
         <div class="oficinas-top-bar">
             <div class="oficinas-top-header">
                 <span style="font-weight: bold; color: #0f172a; font-size: 0.95rem;">
                     <i class="fas fa-industry" style="color: #7c3aed; margin-right: 6px;"></i> Filtrar por Oficina (Selecione uma ou mais):
                 </span>
-                <button type="button" onclick="limparFiltroOficinas()" id="btnLimparOficinas" style="display: none; background: #f1f5f9; border: 1px solid #cbd5e1; color: #475569; padding: 4px 12px; border-radius: 6px; font-size: 0.8rem; font-weight: bold; cursor: pointer;">
-                    <i class="fas fa-times"></i> Mostrar Todas as Oficinas
-                </button>
+                <div style="display: flex; gap: 10px; align-items: center; flex-wrap: wrap;">
+                    <!-- Botão de Alternância de Insumos Sem Vínculo -->
+                    <label style="display: inline-flex; align-items: center; gap: 6px; background: #fef3c7; border: 1px solid #fde68a; padding: 5px 12px; border-radius: 999px; font-size: 0.85rem; font-weight: bold; color: #b45309; cursor: pointer;">
+                        <input type="checkbox" id="checkMostrarSemVinculo" onchange="applyFilters()" style="accent-color: #d97706; transform: scale(1.1);">
+                        <span>Mostrar Insumos Sem Vínculo</span>
+                    </label>
+
+                    <button type="button" onclick="limparFiltroOficinas()" id="btnLimparOficinas" style="display: none; background: #f1f5f9; border: 1px solid #cbd5e1; color: #475569; padding: 4px 12px; border-radius: 6px; font-size: 0.8rem; font-weight: bold; cursor: pointer;">
+                        <i class="fas fa-times"></i> Mostrar Todas
+                    </button>
+                </div>
             </div>
             <div class="oficinas-chips-container">
                 <% (oficinas || []).forEach(of => { %>
@@ -79,9 +93,6 @@
                         <span><%= of.nome %></span>
                     </label>
                 <% }) %>
-                <% if (!oficinas || oficinas.length === 0) { %>
-                    <span style="color: #64748b; font-size: 0.9rem;">Nenhuma oficina cadastrada.</span>
-                <% } %>
             </div>
         </div>
 
@@ -121,7 +132,7 @@
         <div class="card-panel">
             <div class="card-header-custom">
                 <span><i class="fas fa-boxes"></i> Saldo Atual no Almoxarifado Geral</span>
-                <span id="contadorInsumos" style="font-size: 0.85rem; font-weight: normal; color: #cbd5e1;"><%= insumosGeral.length %> itens exibidos</span>
+                <span id="contadorInsumos" style="font-size: 0.85rem; font-weight: normal; color: #cbd5e1;">0 itens exibidos</span>
             </div>
             <div class="table-responsive">
                 <table class="table-custom" id="estoqueTable">
@@ -137,8 +148,10 @@
                         </tr>
                     </thead>
                     <tbody>
+                        <!-- 1. Insumos Padrão (com vínculo) -->
                         <% insumosGeral.forEach(item => { %>
                             <tr class="insumo-row" 
+                                data-tipo="padrao"
                                 data-name="<%= item.descricao.toLowerCase() %> <%= (item.oficinas_texto || '').toLowerCase() %>" 
                                 data-ref="<%= item.ref.toLowerCase() %>" 
                                 data-ids="<%= JSON.stringify(item.ids) %>"
@@ -161,6 +174,34 @@
                                 <td style="text-align: center; color: #0284c7; font-weight: 700; background: #f0f9ff;"><%= item.qtd_separada %></td>
                             </tr>
                         <% }) %>
+
+                        <!-- 2. Insumos Sem Vínculo (Destacados e Ocultos por padrão até marcar o filtro) -->
+                        <% (typeof insumosSemVinculo !== 'undefined' ? insumosSemVinculo : []).forEach(item => { %>
+                            <tr class="insumo-row row-sem-vinculo" 
+                                data-tipo="sem-vinculo"
+                                data-name="<%= item.descricao.toLowerCase() %> uso geral avulso" 
+                                data-ref="<%= item.ref.toLowerCase() %>" 
+                                data-ids="[]"
+                                data-oficinas="[]"
+                                style="display: none;">
+                                <td>
+                                    <a href="/insumos-sem-vinculo/<%= item.id %>/detalhes" class="link-insumo" style="color: #b45309;">
+                                        <i class="fas fa-search-plus" style="font-size: 0.85rem;"></i> <%= item.descricao %> (<%= item.unidade %>)
+                                    </a>
+                                    <span class="badge-sem-vinculo"><i class="fas fa-star"></i> Sem Vínculo</span>
+                                    <div>
+                                        <span class="oficina-tag-mini" style="background: #fef3c7; color: #b45309;"><i class="fas fa-tag"></i> <%= item.oficina_texto %></span>
+                                    </div>
+                                </td>
+                                <td><span style="background: #fef3c7; color: #b45309; padding: 3px 8px; border-radius: 4px; font-size: 0.8rem; font-weight: 600;"><%= item.ref %></span></td>
+                                <td style="text-align: center; color: #2563eb; font-weight: 700;"><%= item.qtd_sede || 0 %></td>
+                                <td style="text-align: center; color: #8b5cf6; font-weight: 700;"><%= item.qtd_complexo || 0 %></td>
+                                <td style="text-align: center; color: #0f766e; font-weight: 700;"><%= item.qtd_regional || 0 %></td>
+                                <td style="text-align: center; font-size: 1.05rem; font-weight: 700; background: #fffbeb;"><%= item.total_geral %></td>
+                                <td style="text-align: center; color: #64748b; font-weight: 600; background: #fef3c7;">Avulso</td>
+                            </tr>
+                        <% }) %>
+
                         <tr id="linhaSemResultados" style="display: none;">
                             <td colspan="7" style="text-align: center; color: #64748b; padding: 30px;">Nenhum insumo encontrado para os filtros selecionados.</td>
                         </tr>
@@ -216,6 +257,7 @@
         function applyFilters() {
             const query = document.getElementById('globalSearch').value.toLowerCase().trim();
             const activeOnly = document.getElementById('checkActiveOnly').checked;
+            const mostrarSemVinculo = document.getElementById('checkMostrarSemVinculo').checked;
             const selectedProcs = Array.from(document.querySelectorAll('.proc-check:checked')).map(c => parseInt(c.value));
             const selectedOficinas = Array.from(document.querySelectorAll('.oficina-check:checked')).map(c => String(c.value));
 
@@ -227,13 +269,20 @@
             let visiveis = 0;
 
             document.querySelectorAll('.insumo-row').forEach(row => {
+                const tipo = row.getAttribute('data-tipo');
                 const ids = JSON.parse(row.dataset.ids || '[]');
                 const oficinasDoInsumo = JSON.parse(row.dataset.oficinas || '[]').map(String);
 
+                // Se for insumo sem vínculo e o checkbox de exibição estiver desmarcado, esconde imediatamente
+                if (tipo === 'sem-vinculo' && !mostrarSemVinculo) {
+                    row.style.display = 'none';
+                    return;
+                }
+
                 const matchesSearch = !query || row.dataset.name.includes(query) || row.dataset.ref.includes(query);
-                const usedInSelected = selectedProcs.length === 0 || ids.some(id => (insumoMap[id] || []).some(pid => selectedProcs.includes(pid)));
-                const hasActive = activeOnly ? ids.some(id => (insumoMap[id] || []).length > 0) : true;
-                const matchesOficina = selectedOficinas.length === 0 || selectedOficinas.some(ofId => oficinasDoInsumo.includes(ofId));
+                const usedInSelected = tipo === 'sem-vinculo' ? true : (selectedProcs.length === 0 || ids.some(id => (insumoMap[id] || []).some(pid => selectedProcs.includes(pid))));
+                const hasActive = tipo === 'sem-vinculo' ? true : (activeOnly ? ids.some(id => (insumoMap[id] || []).length > 0) : true);
+                const matchesOficina = tipo === 'sem-vinculo' ? true : (selectedOficinas.length === 0 || selectedOficinas.some(ofId => oficinasDoInsumo.includes(ofId)));
 
                 if (matchesSearch && usedInSelected && hasActive && matchesOficina) {
                     row.style.display = '';
@@ -242,9 +291,6 @@
                     row.style.display = 'none';
                 }
             });
-
-            const title = document.getElementById('dropdownTitle');
-            title.innerHTML = selectedProcs.length === 0 ? 'Selecione os processos...' : `<span style="color:#2563eb; font-weight:bold;">${selectedProcs.length} processos selecionados</span>`;
             
             const contador = document.getElementById('contadorInsumos');
             if (contador) contador.textContent = `${visiveis} itens exibidos`;
@@ -260,6 +306,9 @@
             const val = e.target.value.toLowerCase();
             document.querySelectorAll('.proc-item').forEach(item => { item.style.display = item.dataset.text.includes(val) ? 'flex' : 'none'; });
         });
+
+        // Executa na carga inicial para ajustar o contador
+        applyFilters();
     </script>
 </body>
 </html>

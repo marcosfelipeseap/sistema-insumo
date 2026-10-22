@@ -14,9 +14,17 @@
         .bg-solicitado { background: linear-gradient(135deg, #f59e0b, #d97706); }
         .bg-enviado { background: linear-gradient(135deg, #10b981, #059669); }
 
+        /* Barra de Oficinas no Topo */
+        .oficinas-top-bar { background: white; border: 1px solid #e2e8f0; border-radius: 10px; padding: 15px 20px; margin-bottom: 25px; box-shadow: 0 2px 4px rgba(0,0,0,0.03); }
+        .oficinas-top-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; flex-wrap: wrap; gap: 10px; }
+        .oficinas-chips-container { display: flex; flex-wrap: wrap; gap: 8px; }
+        .oficina-chip-label { display: inline-flex; align-items: center; gap: 8px; padding: 7px 14px; background: #f8fafc; border: 1px solid #cbd5e1; border-radius: 999px; font-size: 0.88rem; font-weight: 600; color: #334155; cursor: pointer; user-select: none; transition: all 0.2s; }
+        .oficina-chip-label:hover { border-color: #3b82f6; background: #eff6ff; }
+        .oficina-chip-label input { display: none; }
+        .oficina-chip-label.active { background: #3b82f6; color: white; border-color: #2563eb; box-shadow: 0 2px 6px rgba(59, 130, 246, 0.25); }
+
         .card-panel { background: white; border-radius: 12px; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05); border: 1px solid #e2e8f0; margin-top: 30px; display: flex; flex-direction: column; overflow: hidden; }
         
-        /* Estilos atualizados para o Efeito Sanfona no Cabeçalho */
         .card-header-custom { background: #1e293b; color: white; padding: 18px 24px; font-weight: bold; font-size: 1.1rem; display: flex; align-items: center; justify-content: space-between; }
         .section-title-accordion { cursor: pointer; transition: filter 0.2s; }
         .section-title-accordion:hover { filter: brightness(1.1); }
@@ -44,6 +52,30 @@
             </div>
         </div>
 
+        <!-- FILTRO DE OFICINAS NO TOPO -->
+        <div class="oficinas-top-bar">
+            <div class="oficinas-top-header">
+                <span style="font-weight: bold; color: #0f172a; font-size: 0.95rem;">
+                    <i class="fas fa-industry" style="color: #3b82f6; margin-right: 6px;"></i> Filtrar Balanço por Oficina:
+                </span>
+                <% if (dados.oficinaFiltroId) { %>
+                    <a href="/balanco" style="background: #f1f5f9; border: 1px solid #cbd5e1; color: #475569; padding: 4px 12px; border-radius: 6px; font-size: 0.8rem; font-weight: bold; text-decoration: none;">
+                        <i class="fas fa-times"></i> Mostrar Todas as Oficinas
+                    </a>
+                <% } %>
+            </div>
+            <div class="oficinas-chips-container">
+                <% (dados.oficinas || []).forEach(of => { 
+                    const isAtivo = String(dados.oficinaFiltroId) === String(of.id);
+                %>
+                    <a href="/balanco?oficina=<%= of.id %>" class="oficina-chip-label <%= isAtivo ? 'active' : '' %>" style="text-decoration: none;">
+                        <% if (isAtivo) { %><i class="fas fa-check-circle" style="font-size: 0.85rem;"></i><% } %>
+                        <span><%= of.nome %></span>
+                    </a>
+                <% }) %>
+            </div>
+        </div>
+
         <!-- Indicadores Globais -->
         <div class="grid-cards">
             <div class="card-financeiro bg-estoque">
@@ -64,7 +96,6 @@
 
         <!-- TELINHA DETALHADA 1: COMPOSIÇÃO DO ESTOQUE -->
         <div class="card-panel">
-            <!-- Cabeçalho Acordeão -->
             <div class="card-header-custom section-title-accordion" style="background: #0284c7;" onclick="toggleSanfona('containerEstoque', 'iconeEstoque')">
                 <div style="display: flex; align-items: center; gap: 10px;">
                     <i class="fas fa-search-dollar"></i> <span>Detalhamento do Capital em Estoque</span>
@@ -72,7 +103,6 @@
                 <i id="iconeEstoque" class="fas fa-chevron-up"></i>
             </div>
             
-            <!-- Container que será escondido/exibido -->
             <div id="containerEstoque">
                 <div class="search-container">
                     <i class="fas fa-search search-icon"></i>
@@ -106,6 +136,9 @@
                                     </td>
                                 </tr>
                             <% }) %>
+                            <% if (dados.estoqueDetalhado.length === 0) { %>
+                                <tr><td colspan="4" style="text-align: center; color: #64748b; padding: 25px;">Nenhum insumo encontrado para esta oficina.</td></tr>
+                            <% } %>
                         </tbody>
                     </table>
                 </div>
@@ -114,7 +147,6 @@
 
         <!-- TELINHA DETALHADA 2: CUSTO POR PROCESSO -->
         <div class="card-panel">
-            <!-- Cabeçalho Acordeão -->
             <div class="card-header-custom section-title-accordion" onclick="toggleSanfona('containerProcesso', 'iconeProcesso')">
                 <div style="display: flex; align-items: center; gap: 10px;">
                     <i class="fas fa-chart-bar"></i> <span>Custo Detalhado por Processo (Demandas)</span>
@@ -122,7 +154,6 @@
                 <i id="iconeProcesso" class="fas fa-chevron-up"></i>
             </div>
 
-            <!-- Container que será escondido/exibido -->
             <div id="containerProcesso">
                 <div class="search-container">
                     <i class="fas fa-search search-icon"></i>
@@ -161,6 +192,9 @@
                                     </td>
                                 </tr>
                             <% }) %>
+                            <% if (dados.balancoProcessos.length === 0) { %>
+                                <tr><td colspan="5" style="text-align: center; color: #64748b; padding: 25px;">Nenhum processo encontrado para esta oficina.</td></tr>
+                            <% } %>
                         </tbody>
                     </table>
                 </div>
@@ -170,7 +204,6 @@
 
     <!-- SCRIPTS -->
     <script>
-        // Função de Pesquisa
         function filtrarTabela(inputId, tabelaId) {
             const input = document.getElementById(inputId).value.toLowerCase();
             const linhas = document.querySelectorAll(`#${tabelaId} tbody tr`);
@@ -187,7 +220,6 @@
             });
         }
 
-        // Função do Acordeão (Sanfona)
         function toggleSanfona(containerId, iconeId) {
             const container = document.getElementById(containerId);
             const icone = document.getElementById(iconeId);

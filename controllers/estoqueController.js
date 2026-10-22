@@ -6,10 +6,13 @@ const estoqueController = {
             let insumosGeral = await EstoqueService.listarEstoqueGeral();
             insumosGeral = insumosGeral.filter(i => i.ref && i.ref.trim() !== '');
 
+            const insumosSemVinculo = await EstoqueService.listarInsumosSemVinculoFormatados();
             const oficinas = await EstoqueService.listarOficinas();
             const { map, processos } = await EstoqueService.mapearUsoPorProcesso();
+
             res.render('estoque/index', { 
                 insumosGeral, 
+                insumosSemVinculo,
                 oficinas,
                 insumoProcessoMap: JSON.stringify(map), 
                 processosAtivos: processos, 

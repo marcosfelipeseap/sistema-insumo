@@ -1,0 +1,288 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <title>Detalhes do Insumo - <%= insumo.descricao %></title>
+    <link rel="stylesheet" href="/css/style.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        .info-card { background: white; padding: 22px; border-radius: 10px; box-shadow: 0 2px 5px rgba(0,0,0,0.06); border: 1px solid #e2e8f0; margin-bottom: 24px; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 18px; }
+        .table-responsive { width: 100%; overflow-x: auto; background: white; border-radius: 0 0 10px 10px; box-shadow: 0 2px 5px rgba(0,0,0,0.05); border: 1px solid #e2e8f0; border-top: none; margin-bottom: 30px; }
+        .table-custom { width: 100%; border-collapse: collapse; }
+        .table-custom th, .table-custom td { padding: 13px 16px; border-bottom: 1px solid #e2e8f0; text-align: left; vertical-align: middle; }
+        .table-custom th { background-color: #f8fafc; color: #0f172a; font-weight: bold; font-size: 0.8rem; text-transform: uppercase; }
+
+        .form-box { background: white; padding: 20px; border-radius: 10px; border: 1px solid #cbd5e1; margin-bottom: 24px; display: none; }
+        .form-control { padding: 9px 12px; border: 1px solid #cbd5e1; border-radius: 6px; font-size: 0.94rem; outline: none; width: 100%; }
+
+        .toast-banner { padding: 14px 18px; border-radius: 8px; margin-bottom: 18px; display: flex; justify-content: space-between; align-items: center; font-weight: 600; }
+        .toast-sucesso { background: #dcfce7; color: #166534; border: 1px solid #86efac; }
+        .toast-erro { background: #fee2e2; color: #991b1b; border: 1px solid #fca5a5; }
+
+        .badge-mov { padding: 4px 8px; border-radius: 6px; font-size: 0.75rem; font-weight: 700; display: inline-block; }
+        .badge-mov-entrada { background: #dcfce7; color: #166534; }
+        .badge-mov-saida { background: #fee2e2; color: #991b1b; }
+        .badge-mov-ajuste { background: #e0f2fe; color: #0369a1; }
+    </style>
+</head>
+<body>
+    <%- include('../partials/sidebar') %>
+
+    <main class="main-content">
+        <div class="page-header" style="margin-bottom: 20px;">
+            <div>
+                <h1>Detalhes e Histórico do Insumo (Sem Vínculo)</h1>
+                <p style="color:#64748b;">Consulte saldos por unidade, realize movimentações ou audite o histórico completo deste material.</p>
+            </div>
+            <a href="/insumos-sem-vinculo" class="btn" style="background:#e2e8f0; color:#334155; font-weight:bold;">
+                <i class="fas fa-arrow-left"></i> Voltar para Insumos Sem Vínculo
+            </a>
+        </div>
+
+        <% if (sucesso) { %>
+            <div class="toast-banner toast-sucesso">
+                <span><i class="fas fa-check-circle"></i> <%= sucesso %></span>
+                <button type="button" onclick="this.parentElement.remove()" style="background:none; border:none; color:inherit; cursor:pointer; font-size:1.1rem;">&times;</button>
+            </div>
+        <% } %>
+
+        <% if (erro) { %>
+            <div class="toast-banner toast-erro">
+                <span><i class="fas fa-exclamation-triangle"></i> <%= erro %></span>
+                <button type="button" onclick="this.parentElement.remove()" style="background:none; border:none; color:inherit; cursor:pointer; font-size:1.1rem;">&times;</button>
+            </div>
+        <% } %>
+
+        <!-- CARD DE INFORMAÇÕES E SALDOS -->
+        <div class="info-card">
+            <div>
+                <span style="background: #ede9fe; color: #6d28d9; padding: 3px 10px; border-radius: 999px; font-size: 0.78rem; font-weight: bold;">
+                    <i class="fas fa-industry"></i> <%= insumo.oficina || 'Uso Geral' %>
+                </span>
+                <h2 style="color: #0f172a; margin: 8px 0 4px 0;"><%= insumo.descricao %></h2>
+                <p style="color: #64748b; margin: 0;">
+                    Unidade: <strong><%= insumo.unidade %></strong> | Referência (Ref): <strong><%= insumo.ref || 'S/REF' %></strong>
+                </p>
+            </div>
+
+            <div style="display: flex; gap: 15px; align-items: center; flex-wrap: wrap;">
+                <div style="display: flex; gap: 18px; background: #f8fafc; padding: 12px 20px; border-radius: 8px; border: 1px solid #e2e8f0;">
+                    <div>
+                        <span style="font-size: 0.78rem; color: #64748b; display: block;">Saldo Sede</span>
+                        <strong style="color: #2563eb; font-size: 1.2rem;"><%= insumo.qtd_sede %></strong>
+                    </div>
+                    <div>
+                        <span style="font-size: 0.78rem; color: #64748b; display: block;">Saldo Complexo</span>
+                        <strong style="color: #8b5cf6; font-size: 1.2rem;"><%= insumo.qtd_complexo %></strong>
+                    </div>
+                    <div>
+                        <span style="font-size: 0.78rem; color: #64748b; display: block;">Saldo Regional</span>
+                        <strong style="color: #0f766e; font-size: 1.2rem;"><%= insumo.qtd_regional %></strong>
+                    </div>
+                    <div style="background: #f1f5f9; padding: 0 12px; border-radius: 6px; border-left: 2px solid #cbd5e1;">
+                        <span style="font-size: 0.78rem; color: #334155; display: block; font-weight: bold;">TOTAL FÍSICO</span>
+                        <strong style="color: #0f172a; font-size: 1.25rem;"><%= insumo.total_geral %> <%= insumo.unidade %></strong>
+                    </div>
+                </div>
+
+                <div style="display: flex; gap: 8px; flex-wrap: wrap;">
+                    <button type="button" class="btn" style="background:#10b981; color:white; font-weight:bold;" onclick="alternarPainel('painelEntrada')">
+                        <i class="fas fa-arrow-down"></i> Nova Entrada
+                    </button>
+                    <button type="button" class="btn" style="background:#f59e0b; color:white; font-weight:bold;" onclick="alternarPainel('painelSaida')">
+                        <i class="fas fa-arrow-up"></i> Nova Saída + Comprovante
+                    </button>
+                    <% if (user && user.cargo !== 'Monitor') { %>
+                        <button type="button" class="btn" style="background:#0284c7; color:white; font-weight:bold;" onclick="alternarPainel('painelAjuste')">
+                            <i class="fas fa-sliders-h"></i> Ajustar Saldos
+                        </button>
+                    <% } %>
+                </div>
+            </div>
+        </div>
+
+        <!-- PAINEL 1: REGISTRAR ENTRADA DESTE INSUMO -->
+        <div id="painelEntrada" class="form-box" style="background: #f0fdf4; border-color: #86efac;">
+            <h3 style="margin-top:0; color:#166534; font-size:1.05rem;"><i class="fas fa-arrow-down"></i> Registrar Entrada para <%= insumo.descricao %></h3>
+            <form action="/insumos-sem-vinculo/entrada/lote" method="POST" style="display:flex; flex-wrap:wrap; gap:14px; align-items:flex-end;">
+                <input type="hidden" name="return_to" value="/insumos-sem-vinculo/<%= insumo.id %>/detalhes">
+                <input type="hidden" name="insumos_ids[]" value="<%= insumo.id %>">
+                <div style="width: 140px;">
+                    <label style="font-size:0.82rem; font-weight:bold; color:#166534;">+ Qtd Sede:</label>
+                    <input type="number" name="qtd_sede[]" step="0.01" min="0" placeholder="0" class="form-control">
+                </div>
+                <div style="width: 140px;">
+                    <label style="font-size:0.82rem; font-weight:bold; color:#166534;">+ Qtd Complexo:</label>
+                    <input type="number" name="qtd_complexo[]" step="0.01" min="0" placeholder="0" class="form-control">
+                </div>
+                <div style="width: 140px;">
+                    <label style="font-size:0.82rem; font-weight:bold; color:#166534;">+ Qtd Regional:</label>
+                    <input type="number" name="qtd_regional[]" step="0.01" min="0" placeholder="0" class="form-control">
+                </div>
+                <div style="flex: 1; min-width: 240px;">
+                    <label style="font-size:0.82rem; font-weight:bold; color:#166534;">Observação:</label>
+                    <input type="text" name="observacao" placeholder="Opcional" class="form-control">
+                </div>
+                <div style="display:flex; gap:8px;">
+                    <button type="submit" class="btn" style="background:#10b981; color:white; font-weight:bold;"><i class="fas fa-save"></i> Confirmar Entrada</button>
+                    <button type="button" class="btn" style="background:#94a3b8; color:white;" onclick="alternarPainel('painelEntrada')">Cancelar</button>
+                </div>
+            </form>
+        </div>
+
+        <!-- PAINEL 2: REGISTRAR SAÍDA COM COMPROVANTE -->
+        <div id="painelSaida" class="form-box" style="background: #fffbeb; border-color: #fde68a;">
+            <h3 style="margin-top:0; color:#b45309; font-size:1.05rem;"><i class="fas fa-arrow-up"></i> Registrar Saída e Gerar Comprovante</h3>
+            <form action="/insumos-sem-vinculo/saida/lote" method="POST" target="_blank" onsubmit="setTimeout(() => window.location.reload(), 1200)" style="display:flex; flex-wrap:wrap; gap:14px; align-items:flex-end;">
+                <input type="hidden" name="return_to" value="/insumos-sem-vinculo/<%= insumo.id %>/detalhes">
+                <input type="hidden" name="selecionados" value="<%= insumo.id %>">
+                <div style="width: 220px;">
+                    <label style="font-size:0.82rem; font-weight:bold; color:#92400e;">Origem da Baixa *</label>
+                    <select name="origem_<%= insumo.id %>" class="form-control" required>
+                        <% if (insumo.qtd_sede > 0) { %><option value="SEDE">Almox. Sede (<%= insumo.qtd_sede %> disp.)</option><% } %>
+                        <% if (insumo.qtd_complexo > 0) { %><option value="COMPLEXO">Almox. Complexo (<%= insumo.qtd_complexo %> disp.)</option><% } %>
+                        <% if (insumo.qtd_regional > 0) { %><option value="REGIONAL">Almox. Regional (<%= insumo.qtd_regional %> disp.)</option><% } %>
+                    </select>
+                </div>
+                <div style="width: 140px;">
+                    <label style="font-size:0.82rem; font-weight:bold; color:#92400e;">Quantidade *</label>
+                    <input type="number" name="qtd_<%= insumo.id %>" step="0.01" min="0.01" required class="form-control">
+                </div>
+                <div style="flex: 1; min-width: 220px;">
+                    <label style="font-size:0.82rem; font-weight:bold; color:#92400e;">Recebido por (Requisitante) *</label>
+                    <input type="text" name="recebido_por" required placeholder="Nome de quem está retirando" class="form-control">
+                </div>
+                <div style="flex: 1; min-width: 200px;">
+                    <label style="font-size:0.82rem; font-weight:bold; color:#92400e;">Observação:</label>
+                    <input type="text" name="observacao" placeholder="Opcional" class="form-control">
+                </div>
+                <div style="display:flex; gap:8px;">
+                    <button type="submit" class="btn" style="background:#f59e0b; color:white; font-weight:bold;"><i class="fas fa-file-pdf"></i> Confirmar e Gerar Recibo</button>
+                    <button type="button" class="btn" style="background:#94a3b8; color:white;" onclick="alternarPainel('painelSaida')">Cancelar</button>
+                </div>
+            </form>
+        </div>
+
+        <!-- PAINEL 3: AJUSTE MANUAL DE SALDOS FÍSICOS -->
+        <div id="painelAjuste" class="form-box" style="background: #fef3c7; border-color: #fde68a;">
+            <h3 style="margin-top:0; color:#92400e; font-size:1.05rem;"><i class="fas fa-exclamation-circle"></i> Ajuste Manual de Estoque Físico</h3>
+            <form action="/insumos-sem-vinculo/<%= insumo.id %>/ajustar" method="POST" enctype="multipart/form-data" style="display:flex; flex-wrap:wrap; gap:14px; align-items:flex-end;">
+                <div style="width: 130px;">
+                    <label style="font-size:0.82rem; font-weight:bold; color:#92400e;">Sede (Real):</label>
+                    <input type="number" name="qtd_sede" step="0.01" min="0" value="<%= insumo.qtd_sede %>" required class="form-control">
+                </div>
+                <div style="width: 130px;">
+                    <label style="font-size:0.82rem; font-weight:bold; color:#92400e;">Complexo (Real):</label>
+                    <input type="number" name="qtd_complexo" step="0.01" min="0" value="<%= insumo.qtd_complexo %>" required class="form-control">
+                </div>
+                <div style="width: 130px;">
+                    <label style="font-size:0.82rem; font-weight:bold; color:#92400e;">Regional (Real):</label>
+                    <input type="number" name="qtd_regional" step="0.01" min="0" value="<%= insumo.qtd_regional %>" required class="form-control">
+                </div>
+                <div style="flex: 1; min-width: 240px;">
+                    <label style="font-size:0.82rem; font-weight:bold; color:#92400e;">Justificativa / Motivo *</label>
+                    <input type="text" name="justificativa" required placeholder="Ex: Correção de contagem, avaria, etc." class="form-control">
+                </div>
+                <div style="flex: 1; min-width: 230px;">
+                    <label style="font-size:0.82rem; font-weight:bold; color:#92400e;">
+                        Documento PDF <%- (user && user.cargo === 'admin') ? '(Opcional)' : '<span style="color:#ef4444;">*</span>' %>
+                    </label>
+                    <input type="file" name="documento" accept=".pdf" class="form-control" style="background:white; padding:6px;" <%= (user && user.cargo !== 'admin') ? 'required' : '' %>>
+                </div>
+                <div style="display:flex; gap:8px;">
+                    <button type="submit" class="btn" style="background:#10b981; color:white; font-weight:bold;"><i class="fas fa-save"></i> Salvar Ajuste</button>
+                    <button type="button" class="btn" style="background:#94a3b8; color:white;" onclick="alternarPainel('painelAjuste')">Cancelar</button>
+                </div>
+            </form>
+        </div>
+
+        <!-- TABELA DE HISTÓRICO COMPLETO DESTE INSUMO -->
+        <div style="background: #334155; color: white; padding: 14px 18px; border-radius: 10px 10px 0 0; font-weight: bold; display: flex; justify-content: space-between; align-items: center;">
+            <span><i class="fas fa-history"></i> HISTÓRICO COMPLETO DE ENTRADAS, SAÍDAS E AJUSTES DESTE INSUMO</span>
+            <span style="font-size: 0.82rem; font-weight: normal; color: #cbd5e1;"><%= insumo.historico_movimentacoes.length %> registros</span>
+        </div>
+        <div class="table-responsive">
+            <table class="table-custom">
+                <thead>
+                    <tr>
+                        <th style="width: 15%;">Data / Hora</th>
+                        <th style="width: 15%;">Operação / Local</th>
+                        <th style="text-align: center; width: 14%;">Quantidade</th>
+                        <th style="text-align: center; width: 12%;">Saldo Após</th>
+                        <th style="width: 18%;">Responsável / Recebedor</th>
+                        <th style="width: 26%;">Observação / Comprovante</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <% if (insumo.historico_movimentacoes && insumo.historico_movimentacoes.length > 0) { %>
+                        <% insumo.historico_movimentacoes.forEach(mov => {
+                            let badgeClass = 'badge-mov-ajuste';
+                            if (mov.tipo === 'ENTRADA') badgeClass = 'badge-mov-entrada';
+                            else if (mov.tipo === 'SAIDA') badgeClass = 'badge-mov-saida';
+                        %>
+                            <tr>
+                                <td style="font-size: 0.85rem; color: #64748b;">
+                                    <%= new Date(mov.data_movimentacao).toLocaleString('pt-BR') %>
+                                </td>
+                                <td>
+                                    <span class="badge-mov <%= badgeClass %>"><%= mov.tipo %></span>
+                                    <div style="font-size: 0.8rem; color: #475569; font-weight: bold; margin-top: 3px;">
+                                        <i class="fas fa-map-marker-alt"></i> <%= mov.local %>
+                                    </div>
+                                </td>
+                                <td style="text-align: center; font-weight: 800; font-size: 1.08rem; color: <%= Number(mov.quantidade) > 0 ? '#10b981' : (Number(mov.quantidade) < 0 ? '#ef4444' : '#0f172a') %>;">
+                                    <%= Number(mov.quantidade) > 0 ? '+' + mov.quantidade : mov.quantidade %> <%= insumo.unidade %>
+                                </td>
+                                <td style="text-align: center; font-weight: bold; color: #334155;">
+                                    <%= mov.saldo_momento !== null && mov.saldo_momento !== undefined ? mov.saldo_momento + ' ' + insumo.unidade : '-' %>
+                                </td>
+                                <td style="font-size: 0.88rem;">
+                                    <div><strong>Reg.:</strong> <%= mov.responsavel || 'Sistema' %></div>
+                                    <% if (mov.retirado_por) { %>
+                                        <div style="color: #0f172a;"><strong>Recebedor:</strong> <%= mov.retirado_por %></div>
+                                    <% } %>
+                                </td>
+                                <td style="font-size: 0.9rem; color: #1e293b;">
+                                    <i>"<%= mov.observacao || '-' %>"</i>
+                                    <% if (mov.tipo === 'SAIDA') { %>
+                                        <br>
+                                        <a href="/insumos-sem-vinculo/comprovante/<%= mov.lote_id || mov.id %>" target="_blank" style="display:inline-block; margin-top:5px; font-size:0.78rem; background:#fef3c7; color:#b45309; padding:3px 8px; border-radius:4px; font-weight:bold; text-decoration:none;">
+                                            <i class="fas fa-print"></i> Imprimir Comprovante de Saída
+                                        </a>
+                                    <% } %>
+                                    <% if (mov.documento_url) { %>
+                                        <br>
+                                        <a href="<%= mov.documento_url %>" target="_blank" style="display:inline-block; margin-top:5px; font-size:0.78rem; background:#e2e8f0; color:#2563eb; padding:3px 8px; border-radius:4px; font-weight:bold; text-decoration:none;">
+                                            <i class="fas fa-file-pdf"></i> Ver Anexo PDF
+                                        </a>
+                                    <% } %>
+                                </td>
+                            </tr>
+                        <% }) %>
+                    <% } else { %>
+                        <tr>
+                            <td colspan="6" style="text-align: center; color: #64748b; padding: 30px;">
+                                Nenhuma movimentação registrada para este insumo.
+                            </td>
+                        </tr>
+                    <% } %>
+                </tbody>
+            </table>
+        </div>
+    </main>
+
+    <script>
+        function alternarPainel(idPainel) {
+            ['painelEntrada', 'painelSaida', 'painelAjuste'].forEach(id => {
+                const el = document.getElementById(id);
+                if (!el) return;
+                if (id === idPainel) {
+                    el.style.display = el.style.display === 'block' ? 'none' : 'block';
+                } else {
+                    el.style.display = 'none';
+                }
+            });
+        }
+    </script>
+</body>
+</html>
