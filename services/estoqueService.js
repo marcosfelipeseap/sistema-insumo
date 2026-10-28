@@ -118,7 +118,7 @@ class EstoqueService {
                     total_geral: item.qtd_sede + item.qtd_complexo + item.qtd_regional 
                 };
             })
-            .sort((a, b) => a.descricao.localeCompare(b, 'pt-BR'));
+            .sort((a, b) => a.descricao.localeCompare(b.descricao, 'pt-BR'));
     }
 
     static async listarInsumosSemVinculoFormatados() {
@@ -762,29 +762,30 @@ class EstoqueService {
     }
 
     static async obterComprovanteEnvioLote(loteId) {
-        const { data: movs, error } = await supabase.schema('insumo').from('movimentacoes')
+        let { data: movs, error } = await supabase.schema('insumo').from('movimentacoes')
             .select('*')
             .eq('lote_envio_id', loteId);
 
-        let listaMovs = movs;
-        if ((!listaMovs || listaMovs.length === 0) && !error) {
-            const { data: movPorId } = await supabase.schema('insumo').from('movimentacoes').select('*').eq('id', loteId);
-            listaMovs = movPorId;
+        if (!movs || movs.length === 0) {
+            const { data: movPorId } = await supabase.schema('insumo').from('movimentacoes')
+                .select('*')
+                .eq('id', loteId);
+            movs = movPorId;
         }
 
-        if (!listaMovs || listaMovs.length === 0) return null;
+        if (!movs || movs.length === 0) return null;
 
-        const primeiraMov = listaMovs[0];
+        const primeiraMov = movs[0];
         const processoId = primeiraMov.processo_destino_id;
 
         const { data: processo } = await supabase.schema('insumo').from('processos').select('id, numero, nome').eq('id', processoId).single();
         
-        const insumoIds = [...new Set(listaMovs.map(m => m.insumo_id))];
+        const insumoIds = [...new Set(movs.map(m => m.insumo_id))];
         const { data: insumos } = await supabase.schema('orcamento').from('insumo').select('id, descricao, unidade, ref').in('id', insumoIds);
         const insumoMap = {};
         if (insumos) insumos.forEach(i => insumoMap[i.id] = i);
 
-        const itens = listaMovs.map(m => {
+        const itens = movs.map(m => {
             const i = insumoMap[m.insumo_id] || {};
             return {
                 descricao: i.descricao || 'Insumo',
