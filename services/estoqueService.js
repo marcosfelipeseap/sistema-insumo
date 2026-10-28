@@ -601,20 +601,36 @@ class EstoqueService {
         const processo = await ProcessoService.obterDetalhesComposicao(processoId);
         if (!processo) return null;
 
-        const isBOM = {};
-        if (processo.insumos_consolidados) {
-            processo.insumos_consolidados.forEach(i => {
-                const ids = i.insumo_ids || [i.insumo_id];
-                ids.forEach(id => isBOM[id] = true);
+        const { data: estoqueGeral } = await supabase.schema('insumo').from('estoque_geral').select('*');
+        const { data: listaInsumosOrcamento } = await supabase.schema('orcamento').from('insumo').select('id, descricao, unidade, ref');
+        
+        const mapaEstoquePorId = {};
+        if (estoqueGeral) {
+            estoqueGeral.forEach(e => {
+                mapaEstoquePorId[e.insumo_id] = {
+                    sede: Number(e.qtd_sede || 0),
+                    complexo: Number(e.qtd_complexo || 0),
+                    regional: Number(e.qtd_regional || 0)
+                };
             });
         }
+
+        const descPorId = {};
+        const idsPorDescricao = {};
+        (listaInsumosOrcamento || []).forEach(i => {
+            const descKey = (i.descricao || '').trim().toLowerCase();
+            descPorId[i.id] = descKey;
+            if (!idsPorDescricao[descKey]) idsPorDescricao[descKey] = [];
+            idsPorDescricao[descKey].push(i.id);
+        });
 
         const { data: reservas } = await supabase.schema('insumo').from('estoque_reservas').select('insumo_id, quantidade_reservada').eq('processo_id', processoId);
         const mapaReservas = {};
         if (reservas) {
             reservas.forEach(r => {
-                if (!mapaReservas[r.insumo_id]) mapaReservas[r.insumo_id] = 0;
-                mapaReservas[r.insumo_id] += Number(r.quantidade_reservada);
+                const descKey = descPorId[r.insumo_id] || r.insumo_id;
+                if (!mapaReservas[descKey]) mapaReservas[descKey] = 0;
+                mapaReservas[descKey] += Number(r.quantidade_reservada);
             });
         }
 
@@ -626,42 +642,53 @@ class EstoqueService {
         const mapaProducao = {};
         if (movBanco) {
             movBanco.forEach(m => {
-                if (isBOM[m.insumo_id]) {
-                    if (!mapaProducao[m.insumo_id]) mapaProducao[m.insumo_id] = 0;
-                    mapaProducao[m.insumo_id] += Number(m.quantidade);
+                const descKey = descPorId[m.insumo_id] || m.insumo_id;
+                if (!mapaProducao[descKey]) mapaProducao[descKey] = 0;
+                mapaProducao[descKey] += Number(m.quantidade);
+            });
+        }
+
+        const itensAgrupadosMap = {};
+
+        if (processo.insumos_consolidados) {
+            processo.insumos_consolidados.forEach(ins => {
+                const descKey = (ins.descricao || '').trim().toLowerCase();
+                const idsRelacionados = idsPorDescricao[descKey] || [ins.insumo_id];
+
+                if (!itensAgrupadosMap[descKey]) {
+                    let totalSede = 0;
+                    let totalComplexo = 0;
+                    let totalRegional = 0;
+
+                    idsRelacionados.forEach(idItem => {
+                        const est = mapaEstoquePorId[idItem];
+                        if (est) {
+                            totalSede += est.sede;
+                            totalComplexo += est.complexo;
+                            totalRegional += est.regional;
+                        }
+                    });
+
+                    const reservado = mapaReservas[descKey] || 0;
+                    const enviado = mapaProducao[descKey] || 0;
+                    const pendente = ins.qtd_arredondada - enviado;
+
+                    itensAgrupadosMap[descKey] = {
+                        ...ins,
+                        insumo_id: ins.insumo_id,
+                        insumo_ids: idsRelacionados,
+                        quantidade_reservada: reservado,
+                        quantidade_enviada: enviado,
+                        quantidade_pendente: pendente > 0 ? pendente : 0,
+                        saldo_sede: totalSede,
+                        saldo_complexo: totalComplexo,
+                        saldo_regional: totalRegional
+                    };
                 }
             });
         }
 
-        const { data: estoqueGeral } = await supabase.schema('insumo').from('estoque_geral').select('*');
-        const mapaGeral = {};
-        if (estoqueGeral) {
-            estoqueGeral.forEach(e => { mapaGeral[e.insumo_id] = e; });
-        }
-
-        processo.insumos_envio = processo.insumos_consolidados.map(ins => {
-            const ids = ins.insumo_ids || [ins.insumo_id];
-            let reservado = 0;
-            let enviado = 0;
-            ids.forEach(id => {
-                reservado += (mapaReservas[id] || 0);
-                enviado += (mapaProducao[id] || 0);
-            });
-
-            const geral = mapaGeral[ins.insumo_id] || { qtd_sede: 0, qtd_complexo: 0, qtd_regional: 0 };
-            const pendente = ins.qtd_arredondada - enviado;
-
-            return {
-                ...ins,
-                quantidade_reservada: reservado,
-                quantidade_enviada: enviado,
-                quantidade_pendente: pendente > 0 ? pendente : 0,
-                saldo_sede: Number(geral.qtd_sede || 0),
-                saldo_complexo: Number(geral.qtd_complexo || 0),
-                saldo_regional: Number(geral.qtd_regional || 0)
-            };
-        });
-
+        processo.insumos_envio = Object.values(itensAgrupadosMap);
         return processo;
     }
 
