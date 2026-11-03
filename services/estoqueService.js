@@ -601,6 +601,7 @@ class EstoqueService {
         const processo = await ProcessoService.obterDetalhesComposicao(processoId);
         if (!processo) return null;
 
+        // 1. Busca todos os estoques gerais e mapeia os saldos por ID e por descrição normalizada
         const { data: estoqueGeral } = await supabase.schema('insumo').from('estoque_geral').select('*');
         const { data: listaInsumosOrcamento } = await supabase.schema('orcamento').from('insumo').select('id, descricao, unidade, ref');
         
@@ -624,6 +625,7 @@ class EstoqueService {
             idsPorDescricao[descKey].push(i.id);
         });
 
+        // 2. Mapeia reservas existentes para este processo
         const { data: reservas } = await supabase.schema('insumo').from('estoque_reservas').select('insumo_id, quantidade_reservada').eq('processo_id', processoId);
         const mapaReservas = {};
         if (reservas) {
@@ -634,6 +636,7 @@ class EstoqueService {
             });
         }
 
+        // 3. Mapeia produções já enviadas
         const { data: movBanco } = await supabase.schema('insumo').from('movimentacoes')
             .select('insumo_id, quantidade')
             .eq('processo_destino_id', processoId)
@@ -648,6 +651,7 @@ class EstoqueService {
             });
         }
 
+        // 4. Consolida e agrupa os itens da composição para eliminar duplicidades e somar estoques corretos
         const itensAgrupadosMap = {};
 
         if (processo.insumos_consolidados) {
@@ -675,7 +679,7 @@ class EstoqueService {
 
                     itensAgrupadosMap[descKey] = {
                         ...ins,
-                        insumo_id: ins.insumo_id,
+                        insumo_id: ins.insumo_id, 
                         insumo_ids: idsRelacionados,
                         quantidade_reservada: reservado,
                         quantidade_enviada: enviado,
@@ -708,7 +712,12 @@ class EstoqueService {
 
         const gruposLote = {};
         movs.forEach(m => {
-            const loteId = m.lote_envio_id || m.id; 
+            let loteId = m.id; // Fallback para registros antigos
+            if (m.observacao && m.observacao.includes('[LoteID:')) {
+                const match = m.observacao.match(/\[LoteID:\s*(.*?)\]/);
+                if (match) loteId = match[1];
+            }
+
             if (!gruposLote[loteId]) {
                 gruposLote[loteId] = {
                     lote_id: loteId,
@@ -729,7 +738,8 @@ class EstoqueService {
     }
 
     static async registrarEnvioProducaoLote(processoId, loteEnvios, entreguePor, recebidoPor) {
-        const loteId = 'lote_' + Date.now();
+        // Usa um carimbo de tempo ao invés da coluna lote_envio_id para evitar erro de coluna inexistente no banco
+        const loteId = Date.now().toString(); 
         const dataAtual = new Date().toISOString();
 
         for (let item of loteEnvios) {
@@ -766,7 +776,7 @@ class EstoqueService {
                 await supabase.schema('insumo').from('estoque_geral').update(updates).eq('insumo_id', item.insumo_id);
             }
 
-            await supabase.schema('insumo').from('movimentacoes').insert([{
+            const { error: insertError } = await supabase.schema('insumo').from('movimentacoes').insert([{
                 tipo: 'SAIDA_PRODUCAO',
                 processo_origem_id: processoId,
                 processo_destino_id: processoId,
@@ -774,10 +784,15 @@ class EstoqueService {
                 quantidade: qtd,
                 entregue_por: entreguePor,
                 recebido_por: recebidoPor,
-                observacao: `Baixa via Lote (${item.origem})`,
-                lote_envio_id: loteId,
+                // Salva o ID do lote diretamente na observação para ser localizado posteriormente
+                observacao: `Baixa via Lote (${item.origem}) [LoteID: ${loteId}]`,
                 data_movimentacao: dataAtual
             }]);
+
+            if (insertError) {
+                console.error("Erro na inserção do envio:", insertError);
+                throw new Error("Não foi possível salvar o registro da movimentação no banco de dados.");
+            }
         }
 
         const { data: proc } = await supabase.schema('insumo').from('processos').select('status').eq('id', processoId).single();
@@ -789,9 +804,10 @@ class EstoqueService {
     }
 
     static async obterComprovanteEnvioLote(loteId) {
+        // Busca usando ilike na string da observação para encontrar o ID do lote
         let { data: movs, error } = await supabase.schema('insumo').from('movimentacoes')
             .select('*')
-            .eq('lote_envio_id', loteId);
+            .ilike('observacao', `%[LoteID: ${loteId}]%`);
 
         if (!movs || movs.length === 0) {
             const { data: movPorId } = await supabase.schema('insumo').from('movimentacoes')
@@ -814,12 +830,17 @@ class EstoqueService {
 
         const itens = movs.map(m => {
             const i = insumoMap[m.insumo_id] || {};
+            
+            // Limpa a tag [LoteID: xxx] do recibo
+            let origemLimpa = m.observacao || 'Baixa de Estoque';
+            origemLimpa = origemLimpa.replace(/\[LoteID:.*?\]/g, '').trim();
+
             return {
                 descricao: i.descricao || 'Insumo',
                 unidade: i.unidade || 'UN',
                 ref: i.ref || 'S/REF',
                 quantidade: m.quantidade,
-                origem: m.observacao || 'Baixa de Estoque'
+                origem: origemLimpa
             };
         });
 
