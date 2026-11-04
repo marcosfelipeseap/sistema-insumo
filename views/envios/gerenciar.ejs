@@ -61,7 +61,6 @@
         .search-container i { position: absolute; left: 12px; top: 12px; color: #94a3b8; }
         .search-container input { width: 100%; padding-left: 35px; }
 
-        /* Barra de Oficinas e Painel de Produtos do Processo */
         .oficinas-top-bar { background: white; border: 1px solid #e2e8f0; border-radius: 10px; padding: 15px 20px; margin-bottom: 20px; box-shadow: 0 2px 4px rgba(0,0,0,0.03); }
         .oficinas-top-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; flex-wrap: wrap; gap: 10px; }
         .oficinas-chips-container { display: flex; flex-wrap: wrap; gap: 8px; }
@@ -87,12 +86,12 @@
         .modal-footer { padding: 16px 24px; background: #f8fafc; border-top: 1px solid #e2e8f0; display: flex; justify-content: flex-end; gap: 12px; }
         .modal-table-row:hover { background-color: #f1f5f9; cursor: pointer; }
 
-        /* Estilos específicos para o Modal de Pré-visualização */
         .preview-info-bar { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 12px; background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 14px; margin-bottom: 18px; }
         .preview-info-item { font-size: 0.85rem; color: #64748b; }
         .preview-info-item strong { display: block; color: #0f172a; font-size: 0.98rem; margin-top: 2px; }
         .badge-tipo-padrao { background: #fef3c7; color: #b45309; padding: 3px 8px; border-radius: 4px; font-size: 0.72rem; font-weight: bold; }
         .badge-tipo-extra { background: #ede9fe; color: #6d28d9; padding: 3px 8px; border-radius: 4px; font-size: 0.72rem; font-weight: bold; }
+        .badge-tipo-sv { background: #fee2e2; color: #991b1b; padding: 3px 8px; border-radius: 4px; font-size: 0.72rem; font-weight: bold; }
     </style>
 </head>
 <body>
@@ -110,7 +109,6 @@
         </div>
 
         <% 
-            // Mapeia qual insumo pertence a qual produto para filtro cruzado
             let mapInsumoProd = {};
             (processo.produtos || []).forEach(prod => {
                 (prod.itens || []).forEach(item => {
@@ -123,7 +121,6 @@
             });
         %>
 
-        <!-- FILTRO DE OFICINAS NO TOPO -->
         <div class="oficinas-top-bar">
             <div class="oficinas-top-header">
                 <span style="font-weight: bold; color: #0f172a; font-size: 0.95rem;">
@@ -144,7 +141,6 @@
             </div>
         </div>
 
-        <!-- PAINEL DE PRODUTOS / ITENS QUE FAZEM PARTE DESTE PROCESSO E QUANTIDADE SOLICITADA -->
         <div class="section-title section-title-accordion" onclick="toggleSanfona('containerProdutosProc', 'iconeSanfonaProd')" style="background: #2563eb; color: white; padding: 14px 20px; border-radius: 8px 8px 0 0; font-weight: bold; font-size: 1.05rem; display: flex; align-items: center; justify-content: space-between;">
             <div>
                 <i class="fas fa-boxes" style="margin-right: 10px;"></i> ITENS SOLICITADOS NESTE PROCESSO (<%= (processo.produtos || []).length %>)
@@ -157,7 +153,7 @@
                 <input type="text" id="inputPesquisaProdProcesso" onkeyup="aplicarFiltrosEnvio()" placeholder="Pesquisar item/produto do processo ou oficina..." class="input-lote">
             </div>
             <p style="font-size: 0.82rem; color: #64748b; margin-top: 0; margin-bottom: 10px;">
-                <i class="fas fa-info-circle"></i> Veja abaixo a quantidade solicitada de cada produto. Marque um ou mais produtos se quiser filtrar apenas os insumos que compõem aqueles itens.
+                <i class="fas fa-info-circle"></i> Veja abaixo a quantidade solicitada de cada produto. Marque um ou mais se quiser filtrar apenas os insumos que compõem aqueles itens.
             </p>
             <div class="produtos-grid">
                 <% (processo.produtos || []).forEach(prod => { %>
@@ -181,10 +177,8 @@
             </div>
         </div>
 
-        <!-- target="_blank" garante que o recibo seja aberto numa nova aba -->
         <form action="/envios/processo/<%= processo.id %>/saida" method="POST" id="formLote" target="_blank">
             
-            <!-- 1. ACORDEÃO DA COMPOSIÇÃO PADRÃO -->
             <div class="section-title section-title-accordion" onclick="toggleSanfona('containerInsumos', 'iconeSanfona')" style="background: #f59e0b; color: white; padding: 16px 20px; border-radius: 8px 8px 0 0; font-weight: bold; font-size: 1.1rem; display: flex; align-items: center; justify-content: space-between;">
                 <div style="display: flex; align-items: center;">
                     <i class="fas fa-truck-loading" style="font-size: 1.3rem; margin-right: 12px;"></i> MATERIAIS DA COMPOSIÇÃO (PADRÃO)
@@ -290,10 +284,10 @@
                 </div>
             </div>
 
-            <!-- 2. ACORDEÃO DE MATERIAIS EXTRAS -->
+            <!-- 2. ACORDEÃO DE MATERIAIS EXTRAS / SEM VINCULO -->
             <div class="section-title section-title-accordion" onclick="toggleSanfona('containerExtras', 'iconeSanfonaExtras')" style="background: #8b5cf6; color: white; padding: 16px 20px; border-radius: 8px 8px 0 0; font-weight: bold; font-size: 1.1rem; display: flex; align-items: center; justify-content: space-between; margin-top: 20px;">
                 <div style="display: flex; align-items: center;">
-                    <i class="fas fa-plus-circle" style="font-size: 1.3rem; margin-right: 12px;"></i> INCLUIR MATERIAIS EXTRAS
+                    <i class="fas fa-plus-circle" style="font-size: 1.3rem; margin-right: 12px;"></i> INCLUIR MATERIAIS EXTRAS OU SEM VÍNCULO
                 </div>
                 <i id="iconeSanfonaExtras" class="fas fa-chevron-up" style="font-size: 1.2rem;"></i>
             </div>
@@ -302,9 +296,9 @@
                 
                 <div style="margin-bottom: 15px; background: #f8fafc; padding: 15px; border-radius: 8px; border: 1px solid #e2e8f0; text-align: center;">
                     <button type="button" class="btn" style="background: #8b5cf6; color: white; padding: 12px 24px; font-weight: bold; font-size: 1.05rem; display: inline-flex; align-items: center; gap: 8px; border-radius: 6px; box-shadow: 0 4px 6px -1px rgba(139, 92, 246, 0.3);" onclick="abrirModalExtras()">
-                        <i class="fas fa-search-plus"></i> Buscar e Adicionar Vários Insumos Extras
+                        <i class="fas fa-search-plus"></i> Buscar e Adicionar Vários Insumos Extras / Avulsos
                     </button>
-                    <p style="color: #64748b; font-size: 0.85rem; margin-top: 8px; margin-bottom: 0;">Itens avulsos ou extras já utilizados neste processo ficam guardados abaixo para novos envios.</p>
+                    <p style="color: #64748b; font-size: 0.85rem; margin-top: 8px; margin-bottom: 0;">Insumos do orçamento ou cadastrados avulsos (Sem Vínculo) com estoque disponível.</p>
                 </div>
 
                 <div class="table-responsive" style="box-shadow: none; border-radius: 8px; border: 1px solid #e2e8f0; max-height: 40vh;">
@@ -335,7 +329,7 @@
                                         </td>
                                         <td>
                                             <strong style="color: #6d28d9; font-size: 1.05rem;"><%= ex.descricao %></strong> <br>
-                                            <span style="color: #64748b; font-size: 0.85rem;">UN: <%= ex.unidade %> <strong style="color:#8b5cf6;">(JÁ UTILIZADO NO PROCESSO)</strong></span>
+                                            <span style="color: #64748b; font-size: 0.85rem;">UN: <%= ex.unidade %> <strong style="color:#8b5cf6;">(JÁ UTILIZADO)</strong></span>
                                         </td>
                                         <td>
                                             <div class="box-info box-sede">Alm. Sede: <%= ex.saldo_sede || 0 %></div>
@@ -343,7 +337,7 @@
                                             <div class="box-info box-regional">Alm. Reg: <%= ex.saldo_regional || 0 %></div>
                                         </td>
                                         <td>
-                                            <select name="origem_<%= ex.id %>" class="input-lote" style="width: 100%; font-weight: bold;" disabled id="origem_<%= ex.id %>" onchange="atualizarMaximo('<%= ex.id %>')" required>
+                                            <select name="origem_<%= ex.id %>" class="input-lote" style="width: 100%; font-weight: bold;" disabled id="origem_<%= ex.id %>" onchange="atualizarMaximo('<ex.id>')" required>
                                                 <option value="" disabled selected>Escolha de onde tirar...</option>
                                                 <% if (ex.saldo_sede > 0) { %><option value="GERAL_SEDE" data-saldo="<%= ex.saldo_sede %>">Estoque Sede (<%= ex.saldo_sede %> disp.)</option><% } %>
                                                 <% if (ex.saldo_complexo > 0) { %><option value="GERAL_COMPLEXO" data-saldo="<%= ex.saldo_complexo %>">Estoque Complexo (<%= ex.saldo_complexo %> disp.)</option><% } %>
@@ -385,7 +379,6 @@
             </div>
         </form>
 
-        <!-- Histórico de Envios -->
         <div class="section-title" style="background: #334155; color: white; padding: 16px 20px; border-radius: 8px 8px 0 0; font-weight: bold; margin-top: 50px; font-size: 1.1rem;">
             <i class="fas fa-history" style="margin-right: 8px;"></i> HISTÓRICO DE LOTES ENVIADOS
         </div>
@@ -421,11 +414,11 @@
         </div>
     </main>
 
-    <!-- MODAL DE EXTRAS -->
+    <!-- MODAL DE EXTRAS (INCLUI SEM VINCULO) -->
     <div id="modalExtras" class="modal-overlay" style="display: none;">
         <div class="modal-content">
             <div class="modal-header">
-                <h2><i class="fas fa-list-ul"></i> Catálogo de Insumos Extras</h2>
+                <h2><i class="fas fa-list-ul"></i> Catálogo de Insumos Extras e Avulsos</h2>
                 <span class="close-modal" onclick="fecharModalExtras()">&times;</span>
             </div>
             <div class="modal-body">
@@ -569,7 +562,6 @@
                 btnLimpar.style.display = oficinasSelecionadasIds.length > 0 ? 'inline-block' : 'none';
             }
 
-            // 1. Filtra os cards de Produtos do Processo
             document.querySelectorAll('.produto-card-item').forEach(card => {
                 const nome = card.getAttribute('data-nome') || '';
                 const oficinaNome = card.getAttribute('data-oficina-nome') || '';
@@ -578,7 +570,6 @@
                 card.style.display = (bateTexto && bateOficina) ? 'flex' : 'none';
             });
 
-            // 2. Filtra as linhas da tabela de Insumos da Composição
             document.querySelectorAll('.insumo-padrao-row').forEach(tr => {
                 const nome = tr.getAttribute('data-nome') || '';
                 const oficinasInsumo = JSON.parse(tr.getAttribute('data-oficinas') || '[]').map(String);
@@ -612,7 +603,6 @@
             infosExtras.forEach(ex => {
                 if (document.getElementById('tr_' + ex.id)) return;
                 
-                // Se houver filtro de oficina ativo no topo, filtra o catálogo de extras também
                 if (oficinasSelecionadasIds.length > 0) {
                     const ofIds = (ex.oficina_ids || []).map(String);
                     if (!oficinasSelecionadasIds.some(id => ofIds.includes(id))) return;
@@ -632,14 +622,18 @@
                 };
 
                 const badgesOficina = (ex.oficinas_nomes || []).map(n => `<span class="oficina-tag-mini"><i class="fas fa-industry"></i> ${n}</span>`).join('');
+                
+                // TAG VISUAL SE O INSUMO FOR SEM VÍNCULO
+                const badgeTipo = ex.is_sem_vinculo ? `<span class="oficina-tag-mini" style="background:#fee2e2; color:#991b1b;"><i class="fas fa-link-slash"></i> Sem Vínculo</span>` : '';
 
+                // CORREÇÃO: "check-modal-extra" em vez de "check-item check-extra"
                 tr.innerHTML = `
                     <td style="text-align: center;">
-                        <input type="checkbox" class="check-item check-extra" value="${ex.id}" id="check_modal_${ex.id}">
+                        <input type="checkbox" class="check-modal-extra" value="${ex.id}" id="check_modal_${ex.id}">
                     </td>
                     <td>
                         <label for="check_modal_${ex.id}" style="cursor:pointer; font-weight: 500; color: #1e293b;">${ex.descricao}</label>
-                        <div>${badgesOficina}</div>
+                        <div>${badgeTipo} ${badgesOficina}</div>
                     </td>
                     <td style="text-align: center; color: #64748b;">${ex.unidade}</td>
                 `;
@@ -664,6 +658,7 @@
         }
 
         function processarSelecaoModal() {
+            // CORREÇÃO: Pega apenas os checkboxes marcados dentro da lista do modal
             const checkboxes = document.querySelectorAll('#listaModalExtras input[type="checkbox"]:checked');
             if (checkboxes.length === 0) {
                 alert('Selecione pelo menos um insumo da lista antes de clicar em adicionar.');
@@ -696,13 +691,16 @@
             if(ref.saldo_complexo > 0) originOptions += `<option value="GERAL_COMPLEXO" data-saldo="${ref.saldo_complexo}">Estoque Complexo (${ref.saldo_complexo} disp.)</option>`;
             if(ref.saldo_regional > 0) originOptions += `<option value="GERAL_REGIONAL" data-saldo="${ref.saldo_regional}">Estoque Regional (${ref.saldo_regional} disp.)</option>`;
 
+            const badgeVinculo = ref.is_sem_vinculo ? `<strong style="color:#ef4444;">(SEM VÍNCULO)</strong>` : `<strong style="color:#8b5cf6;">(USO LIVRE)</strong>`;
+
+            // O checkbox inserido na tabela principal continua sendo 'check-item check-extra'
             tr.innerHTML = `
                 <td style="text-align: center;">
                     <input type="checkbox" name="selecionados" value="${ref.id}" class="check-item check-extra" checked onclick="toggleRow(this, '${ref.id}', true)">
                 </td>
                 <td>
                     <strong style="color: #6d28d9; font-size: 1.05rem;">${ref.descricao}</strong> <br>
-                    <span style="color: #64748b; font-size: 0.85rem;">UN: ${ref.unidade} <strong style="color:#8b5cf6;">(USO LIVRE)</strong></span>
+                    <span style="color: #64748b; font-size: 0.85rem;">UN: ${ref.unidade} ${badgeVinculo}</span>
                 </td>
                 <td>
                     <div class="box-info box-sede">Alm. Sede: ${ref.saldo_sede}</div>
@@ -811,7 +809,6 @@
             }
         }
 
-        // --- FUNÇÕES DE PRÉ-VISUALIZAÇÃO E REVISÃO DO ENVIO ---
         function formatarNomeOrigem(valor) {
             const mapa = {
                 'RESERVA': 'Da Reserva do Processo',
@@ -823,6 +820,7 @@
         }
 
         function abrirPreVisualizacao() {
+            // AQUI É GARANTIDO: Só pega os selecionados da tabela principal, não os do modal
             const checkboxes = document.querySelectorAll('.check-item:checked');
             if (checkboxes.length === 0) {
                 alert("Passo 1 Incompleto: Selecione pelo menos UM insumo (padrão ou extra) para envio.");
@@ -882,6 +880,8 @@
             checkboxes.forEach(chk => {
                 const id = chk.value;
                 const isExtra = chk.classList.contains('check-extra');
+                const isSemVinculo = id.startsWith('sv_');
+                
                 const row = document.getElementById('tr_' + id);
                 const origemSelect = document.getElementById('origem_' + id);
                 const qtdInput = document.getElementById('qtd_' + id);
@@ -892,14 +892,22 @@
                 const qtdAtual = qtdInput.value;
                 const maxPermitido = qtdInput.max || qtdInput.getAttribute('data-pendente') || 999999;
 
+                let badgeLabel = 'Composição Padrão';
+                let badgeClass = 'badge-tipo-padrao';
+                if (isSemVinculo) {
+                    badgeLabel = 'Material Sem Vínculo';
+                    badgeClass = 'badge-tipo-sv';
+                } else if (isExtra) {
+                    badgeLabel = 'Material Extra';
+                    badgeClass = 'badge-tipo-extra';
+                }
+
                 const tr = document.createElement('tr');
                 tr.id = 'preview_tr_' + id;
                 tr.innerHTML = `
                     <td>
                         <strong style="color: #0f172a; font-size: 0.98rem;">${descricao}</strong><br>
-                        <span class="${isExtra ? 'badge-tipo-extra' : 'badge-tipo-padrao'}">
-                            ${isExtra ? 'Material Extra' : 'Composição Padrão'}
-                        </span>
+                        <span class="${badgeClass}">${badgeLabel}</span>
                     </td>
                     <td style="text-align: center; font-weight: bold; color: #475569;">${unidade}</td>
                     <td>
@@ -998,7 +1006,6 @@
             const form = document.getElementById('formLote');
             form.submit();
 
-            // Após enviar para a nova aba, fecha o modal e recarrega a página atual para atualizar os saldos e o histórico
             setTimeout(() => {
                 fecharPreVisualizacao();
                 window.location.reload();

@@ -313,7 +313,6 @@ class InsumoSemVinculoService {
         );
     }
 
-    // Entrada Única ou Múltipla (Lote)
     static async registrarEntradaLote(itensEntrada, observacaoGeral, usuario) {
         if (!itensEntrada || itensEntrada.length === 0) {
             throw new Error('Informe a quantidade de entrada para pelo menos um insumo.');
@@ -409,8 +408,8 @@ class InsumoSemVinculoService {
         return loteId;
     }
 
-    // Saída Única ou Múltipla (Lote) com geração de recibo/comprovante
-    static async registrarSaidaLote(loteSaidas, entreguePor, recebidoPor, observacaoGeral) {
+    // --- AQUI ALTERAMOS A ASSINATURA PARA ACEITAR O LOTE ID PERSONALIZADO ---
+    static async registrarSaidaLote(loteSaidas, entreguePor, recebidoPor, observacaoGeral, loteIdPersonalizado = null) {
         if (!recebidoPor || recebidoPor.trim() === '') {
             throw new Error('É obrigatório informar quem está recebendo/retirando o material.');
         }
@@ -418,7 +417,7 @@ class InsumoSemVinculoService {
             throw new Error('Selecione pelo menos um insumo para registrar a saída.');
         }
 
-        const loteId = Date.now().toString();
+        const loteId = loteIdPersonalizado || Date.now().toString();
         const operacoesValidadas = [];
 
         // 1. Valida todos os saldos antes de debitar qualquer item

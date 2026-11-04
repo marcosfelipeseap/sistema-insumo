@@ -1,3 +1,4 @@
+// services/estoqueService.js
 const supabase = require('../config/db');
 const ProcessoService = require('./processoService');
 
@@ -601,7 +602,6 @@ class EstoqueService {
         const processo = await ProcessoService.obterDetalhesComposicao(processoId);
         if (!processo) return null;
 
-        // 1. Busca todos os estoques gerais e mapeia os saldos por ID e por descrição normalizada
         const { data: estoqueGeral } = await supabase.schema('insumo').from('estoque_geral').select('*');
         const { data: listaInsumosOrcamento } = await supabase.schema('orcamento').from('insumo').select('id, descricao, unidade, ref');
         
@@ -625,7 +625,6 @@ class EstoqueService {
             idsPorDescricao[descKey].push(i.id);
         });
 
-        // 2. Mapeia reservas existentes para este processo
         const { data: reservas } = await supabase.schema('insumo').from('estoque_reservas').select('insumo_id, quantidade_reservada').eq('processo_id', processoId);
         const mapaReservas = {};
         if (reservas) {
@@ -636,7 +635,6 @@ class EstoqueService {
             });
         }
 
-        // 3. Mapeia produções já enviadas
         const { data: movBanco } = await supabase.schema('insumo').from('movimentacoes')
             .select('insumo_id, quantidade')
             .eq('processo_destino_id', processoId)
@@ -651,7 +649,6 @@ class EstoqueService {
             });
         }
 
-        // 4. Consolida e agrupa os itens da composição para eliminar duplicidades e somar estoques corretos
         const itensAgrupadosMap = {};
 
         if (processo.insumos_consolidados) {
@@ -697,101 +694,193 @@ class EstoqueService {
     }
 
     static async obterHistoricoEnvios(processoId) {
-        const { data: movs, error } = await supabase.schema('insumo').from('movimentacoes')
+        const gruposLote = {};
+
+        // 1. Busca Movimentações Padrão
+        const { data: movsPadrao } = await supabase.schema('insumo').from('movimentacoes')
             .select('*')
             .eq('processo_destino_id', processoId)
             .eq('tipo', 'SAIDA_PRODUCAO')
             .order('data_movimentacao', { ascending: false });
 
-        if (error || !movs || movs.length === 0) return [];
+        if (movsPadrao && movsPadrao.length > 0) {
+            const insumoIds = [...new Set(movsPadrao.map(m => m.insumo_id))];
+            const { data: insumos } = await supabase.schema('orcamento').from('insumo').select('id, descricao, unidade, ref').in('id', insumoIds);
+            const insumoMap = {};
+            if (insumos) insumos.forEach(i => insumoMap[i.id] = i);
 
-        const insumoIds = [...new Set(movs.map(m => m.insumo_id))];
-        const { data: insumos } = await supabase.schema('orcamento').from('insumo').select('id, descricao, unidade, ref').in('id', insumoIds);
-        const insumoMap = {};
-        if (insumos) insumos.forEach(i => insumoMap[i.id] = i);
+            movsPadrao.forEach(m => {
+                let loteId = String(m.id);
+                if (m.observacao && m.observacao.includes('[LoteID:')) {
+                    const match = m.observacao.match(/\[LoteID:\s*(.*?)\]/);
+                    if (match) loteId = match[1];
+                }
 
-        const gruposLote = {};
-        movs.forEach(m => {
-            let loteId = m.id; // Fallback para registros antigos
-            if (m.observacao && m.observacao.includes('[LoteID:')) {
-                const match = m.observacao.match(/\[LoteID:\s*(.*?)\]/);
-                if (match) loteId = match[1];
-            }
-
-            if (!gruposLote[loteId]) {
-                gruposLote[loteId] = {
-                    lote_id: loteId,
-                    data: m.data_movimentacao || m.created_at,
-                    entregue_por: m.entregue_por || 'Sistema',
-                    recebido_por: m.recebido_por || 'Não informado',
-                    itens: []
-                };
-            }
-            const ins = insumoMap[m.insumo_id] || {};
-            gruposLote[loteId].itens.push({
-                nome: ins.descricao || 'Insumo',
-                quantidade: m.quantidade
+                if (!gruposLote[loteId]) {
+                    gruposLote[loteId] = {
+                        lote_id: loteId,
+                        data: m.data_movimentacao || m.created_at,
+                        entregue_por: m.entregue_por || 'Sistema',
+                        recebido_por: m.recebido_por || 'Não informado',
+                        itens: []
+                    };
+                }
+                const ins = insumoMap[m.insumo_id] || {};
+                gruposLote[loteId].itens.push({
+                    nome: ins.descricao || 'Insumo',
+                    quantidade: m.quantidade
+                });
             });
-        });
+        }
 
-        return Object.values(gruposLote);
+        // 2. Busca Movimentações Sem Vínculo usando a nova tag [ProcID: X]
+        const { data: movsSvDirect } = await supabase.schema('insumo').from('movimentacoes_sem_vinculo')
+            .select('*')
+            .eq('tipo', 'SAIDA')
+            .ilike('observacao', `%[ProcID: ${processoId}]%`)
+            .order('data_movimentacao', { ascending: false });
+
+        let movsSemVinculo = movsSvDirect || [];
+
+        // 3. Busca Movimentações Sem Vínculo antigas (híbridas) usando os LoteIDs
+        const loteIds = Object.keys(gruposLote);
+        if (loteIds.length > 0) {
+            let queryText = loteIds.map(id => `observacao.ilike.%[LoteID: ${id}]%`).join(',');
+            const { data: movsSvLegacy } = await supabase.schema('insumo').from('movimentacoes_sem_vinculo')
+                .select('*')
+                .eq('tipo', 'SAIDA')
+                .or(queryText);
+            
+            if (movsSvLegacy && movsSvLegacy.length > 0) {
+                const idsDirect = new Set(movsSemVinculo.map(m => m.id));
+                movsSvLegacy.forEach(m => {
+                    if (!idsDirect.has(m.id)) {
+                        movsSemVinculo.push(m);
+                    }
+                });
+            }
+        }
+
+        // Processa os itens sem vínculo encontrados e agrupa
+        if (movsSemVinculo.length > 0) {
+            const svIds = [...new Set(movsSemVinculo.map(m => m.insumo_id))];
+            const { data: svInsumos } = await supabase.schema('insumo').from('insumos_sem_vinculo').select('id, descricao, unidade').in('id', svIds);
+            const svMap = {};
+            if (svInsumos) svInsumos.forEach(i => svMap[i.id] = i);
+            
+            movsSemVinculo.forEach(m => {
+                let loteId = String(m.lote_id || m.id);
+                const matchLote = m.observacao?.match(/\[LoteID:\s*(.*?)\]/);
+                if (matchLote) loteId = matchLote[1];
+
+                if (!gruposLote[loteId]) {
+                    gruposLote[loteId] = {
+                        lote_id: loteId,
+                        data: m.data_movimentacao || m.created_at,
+                        entregue_por: m.responsavel || 'Sistema',
+                        recebido_por: m.retirado_por || 'Não informado',
+                        itens: []
+                    };
+                }
+
+                const ins = svMap[m.insumo_id] || {};
+                gruposLote[loteId].itens.push({
+                    nome: ins.descricao || 'Insumo',
+                    quantidade: Math.abs(m.quantidade)
+                });
+            });
+        }
+
+        return Object.values(gruposLote).sort((a, b) => new Date(b.data) - new Date(a.data));
     }
 
-    static async registrarEnvioProducaoLote(processoId, loteEnvios, entreguePor, recebidoPor) {
-        // Usa um carimbo de tempo ao invés da coluna lote_envio_id para evitar erro de coluna inexistente no banco
-        const loteId = Date.now().toString(); 
+    static async registrarEnvioProducaoLote(processoId, loteEnvios, entreguePor, recebidoPor, loteIdPersonalizado = null) {
+        const loteId = loteIdPersonalizado || Date.now().toString(); 
         const dataAtual = new Date().toISOString();
 
         for (let item of loteEnvios) {
-            const qtd = Number(item.quantidade);
-            if (isNaN(qtd) || qtd <= 0) continue;
+            let qtdRestante = Number(item.quantidade);
+            if (isNaN(qtdRestante) || qtdRestante <= 0) continue;
 
-            const { data: geral } = await supabase.schema('insumo').from('estoque_geral').select('*').eq('insumo_id', item.insumo_id).single();
+            // Busca a descrição do insumo para achar os agrupamentos (duplicatas na tabela orçamento)
+            const { data: insumoBase } = await supabase.schema('orcamento').from('insumo').select('descricao').eq('id', item.insumo_id).single();
+            if (!insumoBase) throw new Error(`Insumo ID ${item.insumo_id} não encontrado.`);
             
+            const { data: todosComMesmaDesc } = await supabase.schema('orcamento').from('insumo').select('id').eq('descricao', insumoBase.descricao.trim());
+            const allIds = todosComMesmaDesc ? todosComMesmaDesc.map(i => i.id) : [item.insumo_id];
+
             if (item.origem === 'RESERVA') {
-                const { data: reserva } = await supabase.schema('insumo').from('estoque_reservas').select('*').eq('processo_id', processoId).eq('insumo_id', item.insumo_id).single();
-                if (!reserva || Number(reserva.quantidade_reservada) < qtd) {
-                    throw new Error(`Saldo insuficiente na Reserva para o insumo ID ${item.insumo_id}`);
-                }
-                const novaReserva = Number(reserva.quantidade_reservada) - qtd;
-                if (novaReserva === 0) {
-                    await supabase.schema('insumo').from('estoque_reservas').delete().eq('id', reserva.id);
-                } else {
-                    await supabase.schema('insumo').from('estoque_reservas').update({ quantidade_reservada: novaReserva, updated_at: dataAtual }).eq('id', reserva.id);
-                }
-            } else if (['GERAL_SEDE', 'GERAL_COMPLEXO', 'GERAL_REGIONAL'].includes(item.origem)) {
-                if (!geral) throw new Error(`Insumo ID ${item.insumo_id} não encontrado no estoque geral.`);
+                const { data: reservas } = await supabase.schema('insumo').from('estoque_reservas').select('*').eq('processo_id', processoId).in('insumo_id', allIds);
                 
-                const updates = { updated_at: dataAtual };
-                if (item.origem === 'GERAL_SEDE') {
-                    if (Number(geral.qtd_sede) < qtd) throw new Error(`Saldo insuficiente no Almoxarifado Sede.`);
-                    updates.qtd_sede = Number(geral.qtd_sede) - qtd;
-                } else if (item.origem === 'GERAL_COMPLEXO') {
-                    if (Number(geral.qtd_complexo) < qtd) throw new Error(`Saldo insuficiente no Almoxarifado Complexo.`);
-                    updates.qtd_complexo = Number(geral.qtd_complexo) - qtd;
-                } else if (item.origem === 'GERAL_REGIONAL') {
-                    if (Number(geral.qtd_regional) < qtd) throw new Error(`Saldo insuficiente no Almoxarifado Regional.`);
-                    updates.qtd_regional = Number(geral.qtd_regional) - qtd;
+                for (let res of (reservas || [])) {
+                    if (qtdRestante <= 0) break;
+                    
+                    const saldoRes = Number(res.quantidade_reservada || 0);
+                    if (saldoRes > 0) {
+                        const aDebitar = Math.min(qtdRestante, saldoRes);
+                        const novaReserva = saldoRes - aDebitar;
+                        
+                        if (novaReserva === 0) {
+                            await supabase.schema('insumo').from('estoque_reservas').delete().eq('id', res.id);
+                        } else {
+                            await supabase.schema('insumo').from('estoque_reservas').update({ quantidade_reservada: novaReserva, updated_at: dataAtual }).eq('id', res.id);
+                        }
+
+                        await supabase.schema('insumo').from('movimentacoes').insert([{
+                            tipo: 'SAIDA_PRODUCAO',
+                            processo_origem_id: processoId,
+                            processo_destino_id: processoId,
+                            insumo_id: res.insumo_id, // Desconta o ID específico que detinha o saldo!
+                            quantidade: aDebitar,
+                            entregue_por: entreguePor,
+                            recebido_por: recebidoPor,
+                            observacao: `Baixa via Lote (${item.origem}) [LoteID: ${loteId}]`,
+                            data_movimentacao: dataAtual
+                        }]);
+                        qtdRestante -= aDebitar;
+                    }
                 }
-                await supabase.schema('insumo').from('estoque_geral').update(updates).eq('insumo_id', item.insumo_id);
-            }
+                
+                if (qtdRestante > 0) throw new Error(`Saldo insuficiente na Reserva para o insumo "${insumoBase.descricao}".`);
 
-            const { error: insertError } = await supabase.schema('insumo').from('movimentacoes').insert([{
-                tipo: 'SAIDA_PRODUCAO',
-                processo_origem_id: processoId,
-                processo_destino_id: processoId,
-                insumo_id: item.insumo_id,
-                quantidade: qtd,
-                entregue_por: entreguePor,
-                recebido_por: recebidoPor,
-                // Salva o ID do lote diretamente na observação para ser localizado posteriormente
-                observacao: `Baixa via Lote (${item.origem}) [LoteID: ${loteId}]`,
-                data_movimentacao: dataAtual
-            }]);
+            } else if (['GERAL_SEDE', 'GERAL_COMPLEXO', 'GERAL_REGIONAL'].includes(item.origem)) {
+                
+                const { data: estoques } = await supabase.schema('insumo').from('estoque_geral').select('*').in('insumo_id', allIds);
+                let campoLocal = '';
+                let nomeAmigavel = '';
+                if (item.origem === 'GERAL_SEDE') { campoLocal = 'qtd_sede'; nomeAmigavel = 'Almoxarifado Sede'; }
+                else if (item.origem === 'GERAL_COMPLEXO') { campoLocal = 'qtd_complexo'; nomeAmigavel = 'Almoxarifado Complexo'; }
+                else if (item.origem === 'GERAL_REGIONAL') { campoLocal = 'qtd_regional'; nomeAmigavel = 'Almoxarifado Regional'; }
 
-            if (insertError) {
-                console.error("Erro na inserção do envio:", insertError);
-                throw new Error("Não foi possível salvar o registro da movimentação no banco de dados.");
+                for (let est of (estoques || [])) {
+                    if (qtdRestante <= 0) break;
+
+                    const saldoItem = Number(est[campoLocal] || 0);
+                    if (saldoItem > 0) {
+                        const aDebitar = Math.min(qtdRestante, saldoItem);
+
+                        await supabase.schema('insumo').from('estoque_geral').update({
+                            [campoLocal]: saldoItem - aDebitar,
+                            updated_at: dataAtual
+                        }).eq('insumo_id', est.insumo_id);
+
+                        await supabase.schema('insumo').from('movimentacoes').insert([{
+                            tipo: 'SAIDA_PRODUCAO',
+                            processo_origem_id: processoId,
+                            processo_destino_id: processoId,
+                            insumo_id: est.insumo_id, // Desconta o ID específico que detinha o saldo!
+                            quantidade: aDebitar,
+                            entregue_por: entreguePor,
+                            recebido_por: recebidoPor,
+                            observacao: `Baixa via Lote (${item.origem}) [LoteID: ${loteId}]`,
+                            data_movimentacao: dataAtual
+                        }]);
+
+                        qtdRestante -= aDebitar;
+                    }
+                }
+
+                if (qtdRestante > 0) throw new Error(`Saldo insuficiente no ${nomeAmigavel} para o insumo "${insumoBase.descricao}".`);
             }
         }
 
@@ -804,7 +893,6 @@ class EstoqueService {
     }
 
     static async obterComprovanteEnvioLote(loteId) {
-        // Busca usando ilike na string da observação para encontrar o ID do lote
         let { data: movs, error } = await supabase.schema('insumo').from('movimentacoes')
             .select('*')
             .ilike('observacao', `%[LoteID: ${loteId}]%`);
@@ -815,42 +903,83 @@ class EstoqueService {
                 .eq('id', loteId);
             movs = movPorId;
         }
-
-        if (!movs || movs.length === 0) return null;
-
-        const primeiraMov = movs[0];
-        const processoId = primeiraMov.processo_destino_id;
-
-        const { data: processo } = await supabase.schema('insumo').from('processos').select('id, numero, nome').eq('id', processoId).single();
         
-        const insumoIds = [...new Set(movs.map(m => m.insumo_id))];
-        const { data: insumos } = await supabase.schema('orcamento').from('insumo').select('id, descricao, unidade, ref').in('id', insumoIds);
-        const insumoMap = {};
-        if (insumos) insumos.forEach(i => insumoMap[i.id] = i);
+        let primeiraMov = null;
+        let processoId = null;
+        let itens = [];
 
-        const itens = movs.map(m => {
-            const i = insumoMap[m.insumo_id] || {};
+        if (movs && movs.length > 0) {
+            primeiraMov = movs[0];
+            processoId = primeiraMov.processo_destino_id;
             
-            // Limpa a tag [LoteID: xxx] do recibo
-            let origemLimpa = m.observacao || 'Baixa de Estoque';
-            origemLimpa = origemLimpa.replace(/\[LoteID:.*?\]/g, '').trim();
+            const insumoIds = [...new Set(movs.map(m => m.insumo_id))];
+            const { data: insumos } = await supabase.schema('orcamento').from('insumo').select('id, descricao, unidade, ref').in('id', insumoIds);
+            const insumoMap = {};
+            if (insumos) insumos.forEach(i => insumoMap[i.id] = i);
 
-            return {
-                descricao: i.descricao || 'Insumo',
-                unidade: i.unidade || 'UN',
-                ref: i.ref || 'S/REF',
-                quantidade: m.quantidade,
-                origem: origemLimpa
-            };
-        });
+            itens = movs.map(m => {
+                const i = insumoMap[m.insumo_id] || {};
+                let origemLimpa = m.observacao || 'Baixa de Estoque';
+                origemLimpa = origemLimpa.replace(/\[LoteID:.*?\]/g, '').trim();
+                return {
+                    descricao: i.descricao || 'Insumo',
+                    unidade: i.unidade || 'UN',
+                    ref: i.ref || 'S/REF',
+                    quantidade: m.quantidade,
+                    origem: origemLimpa
+                };
+            });
+        }
+        
+        const { data: movsSv } = await supabase.schema('insumo').from('movimentacoes_sem_vinculo')
+            .select('*')
+            .eq('lote_id', String(loteId));
+            
+        if (movsSv && movsSv.length > 0) {
+            if (!primeiraMov) {
+                primeiraMov = movsSv[0];
+                const procMatch = primeiraMov.observacao?.match(/\[ProcID:\s*(\d+)\]/);
+                if (procMatch) processoId = procMatch[1];
+            }
+            
+            const svIds = [...new Set(movsSv.map(m => m.insumo_id))];
+            const { data: insumosSv } = await supabase.schema('insumo').from('insumos_sem_vinculo').select('id, descricao, unidade, ref, oficina').in('id', svIds);
+            const svMap = {};
+            if (insumosSv) insumosSv.forEach(i => svMap[i.id] = i);
+            
+            const itensSv = movsSv.map(m => {
+                const i = svMap[m.insumo_id] || {};
+                return {
+                    descricao: i.descricao || 'Insumo Avulso',
+                    unidade: i.unidade || 'UN',
+                    ref: i.ref || 'S/REF',
+                    quantidade: Math.abs(m.quantidade),
+                    origem: `Almoxarifado ${m.local}`
+                };
+            });
+            itens = itens.concat(itensSv);
+        }
+
+        if (itens.length === 0) return null;
+
+        let processoNome = 'Processo';
+        let processoNumero = '---';
+        
+        if (processoId) {
+            const { data: processo } = await supabase.schema('insumo').from('processos').select('id, numero, nome').eq('id', processoId).single();
+            if (processo) {
+                processoNome = processo.nome;
+                processoNumero = processo.numero;
+            }
+        }
 
         return {
             lote_id: loteId,
             data_movimentacao: primeiraMov.data_movimentacao || primeiraMov.created_at,
-            entregue_por: primeiraMov.entregue_por || 'Sistema',
-            recebido_por: primeiraMov.recebido_por || 'Não informado',
-            processo_nome: processo ? processo.nome : 'Processo',
-            processo_numero: processo ? processo.numero : '---',
+            entregue_por: primeiraMov.entregue_por || primeiraMov.responsavel || 'Sistema',
+            recebido_por: primeiraMov.recebido_por || primeiraMov.retirado_por || 'Não informado',
+            processo_nome: processoNome,
+            processo_numero: processoNumero,
             itens: itens
         };
     }

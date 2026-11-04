@@ -1,6 +1,7 @@
 // controllers/envioController.js
 const EstoqueService = require('../services/estoqueService');
 const ProcessoService = require('../services/processoService');
+const InsumoSemVinculoService = require('../services/insumoSemVinculoService');
 const supabase = require('../config/db');
 
 const envioController = {
@@ -89,6 +90,8 @@ const envioController = {
                     const infoOf = mapaOficinasInsumo[ins.id] || { oficina_ids: [], oficinas_nomes: [] };
                     mapaCatalogoUnico[descKey] = {
                         id: ins.id,
+                        insumo_id: ins.id,
+                        is_sem_vinculo: false,
                         descricao: ins.descricao,
                         unidade: ins.unidade,
                         saldo_sede: saldo.sede,
@@ -103,6 +106,26 @@ const envioController = {
             const catalogoExtras = Object.values(mapaCatalogoUnico).filter(ins => 
                 ins.saldo_sede > 0 || ins.saldo_complexo > 0 || ins.saldo_regional > 0
             );
+
+            const semVinculo = await EstoqueService.listarInsumosSemVinculoFormatados();
+            semVinculo.forEach(sv => {
+                if (sv.total_geral > 0) {
+                    catalogoExtras.push({
+                        id: 'sv_' + sv.id,
+                        insumo_id: sv.id,
+                        is_sem_vinculo: true,
+                        descricao: sv.descricao,
+                        unidade: sv.unidade,
+                        saldo_sede: sv.qtd_sede,
+                        saldo_complexo: sv.qtd_complexo,
+                        saldo_regional: sv.qtd_regional,
+                        oficina_ids: sv.oficina_ids,
+                        oficinas_nomes: sv.oficinas_nomes
+                    });
+                }
+            });
+
+            catalogoExtras.sort((a, b) => a.descricao.localeCompare(b.descricao, 'pt-BR'));
 
             const idsPadrao = new Set((processo.insumos_envio || []).map(i => String(i.insumo_id)));
             const { data: movsExtras } = await supabase.schema('insumo').from('movimentacoes')
@@ -144,20 +167,44 @@ const envioController = {
             }
 
             const idsSelecionados = Array.isArray(selecionados) ? selecionados : [selecionados];
-            const loteEnvios = [];
+            
+            const loteEnviosPadrao = [];
+            const loteEnviosSemVinculo = [];
 
-            for (let id of idsSelecionados) {
-                const qtd = req.body[`qtd_${id}`];
-                const origem = req.body[`origem_${id}`];
+            for (let idStr of idsSelecionados) {
+                const qtd = req.body[`qtd_${idStr}`];
+                const origem = req.body[`origem_${idStr}`];
                 
                 if (!qtd || !origem) throw new Error("Preencha a quantidade e origem de todos os itens selecionados.");
 
-                loteEnvios.push({ insumo_id: id, quantidade: qtd, origem: origem });
+                if (String(idStr).startsWith('sv_')) {
+                    loteEnviosSemVinculo.push({
+                        insumo_id: idStr.replace('sv_', ''),
+                        quantidade: qtd,
+                        origem: origem.replace('GERAL_', '')
+                    });
+                } else {
+                    loteEnviosPadrao.push({ 
+                        insumo_id: idStr, 
+                        quantidade: qtd, 
+                        origem: origem 
+                    });
+                }
             }
 
-            const loteId = await EstoqueService.registrarEnvioProducaoLote(processoId, loteEnvios, entregue_por, recebido_por);
+            const loteIdUnico = Date.now().toString();
+
+            if (loteEnviosPadrao.length > 0) {
+                await EstoqueService.registrarEnvioProducaoLote(processoId, loteEnviosPadrao, entregue_por, recebido_por, loteIdUnico);
+            }
+
+            if (loteEnviosSemVinculo.length > 0) {
+                // ADD PROCID: X para conseguir achar independente dos itens normais
+                const obsGeral = `Envio p/ Produção [ProcID: ${processoId}] [LoteID: ${loteIdUnico}]`;
+                await InsumoSemVinculoService.registrarSaidaLote(loteEnviosSemVinculo, entregue_por, recebido_por, obsGeral, loteIdUnico);
+            }
             
-            res.redirect(`/envios/comprovante/${loteId}`);
+            res.redirect(`/envios/comprovante/${loteIdUnico}`);
             
         } catch(error) {
             console.error("Erro no registrarEnvio:", error);
