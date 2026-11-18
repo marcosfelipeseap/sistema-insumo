@@ -13,12 +13,11 @@ exports.getEstoqueData = async () => {
     });
 
     const doc = new GoogleSpreadsheet(process.env.SPREADSHEET_ID, serviceAccountAuth);
-    await doc.loadInfo(); 
+    await doc.loadInfo();
 
-    // O SEGREDO ESTÁ AQUI: Filtramos o array para pegar apenas as abas visíveis
+    // Filtra apenas as abas visíveis
     const abasVisiveis = doc.sheetsByIndex.filter(aba => !aba.hidden);
 
-    // Agora os índices funcionam baseados puramente no que você vê na tela
     const abaMdfSede = abasVisiveis[1];
     const abaMdfRegional = abasVisiveis[2];
     const abaMdfUpfem = abasVisiveis[3];
@@ -27,65 +26,81 @@ exports.getEstoqueData = async () => {
     const abaEpis = abasVisiveis[6];
     const abaMaquinario = abasVisiveis[9];
 
-    const mdf = [];
+    // --- FUNÇÃO AUXILIAR DINÂMICA PARA MDF E FITAS ---
+    const extrairDadosMdf = async (aba, local) => {
+        if (!aba) return [];
 
-    // --- 1. MDF SEDE ---
-    if (abaMdfSede) {
-        await abaMdfSede.loadCells('A1:K41'); 
-        for (let col = 1; col <= 10; col++) {
-            if (col === 2 || col === 4) continue;
-            const insumo = abaMdfSede.getCell(0, col).value; 
-            const valorUnitario = abaMdfSede.getCell(40, col).value; 
-            if (insumo) {
-                for (let row = 1; row <= 38; row++) {
-                    const cor = abaMdfSede.getCell(row, 0).value; 
-                    const quantidade = abaMdfSede.getCell(row, col).value; 
-                    if (cor && quantidade && quantidade > 0) {
-                        mdf.push({ insumo, cor, quantidade, valorUnitario: valorUnitario || 0, local: 'Sede' });
-                    }
+        const totalLinhas = aba.rowCount;
+        const totalColunas = aba.columnCount;
+
+        // Carrega todas as células utilizadas na aba
+        await aba.loadCells({
+            startRowIndex: 0,
+            endRowIndex: totalLinhas,
+            startColumnIndex: 0,
+            endColumnIndex: totalColunas
+        });
+
+        // 1. Descobre dinamicamente qual linha representa o "VALOR" na coluna A (índice 0)
+        let linhaValor = -1;
+        for (let row = 1; row < totalLinhas; row++) {
+            const textoColunaA = String(aba.getCell(row, 0).value || '').trim().toUpperCase();
+            if (textoColunaA === 'VALOR') {
+                linhaValor = row;
+                break;
+            }
+        }
+
+        const itensMdf = [];
+
+        // 2. Percorre as colunas de insumos (a partir da coluna B / índice 1)
+        for (let col = 1; col < totalColunas; col++) {
+            const insumoRaw = aba.getCell(0, col).value;
+            const insumo = insumoRaw ? String(insumoRaw).trim() : '';
+
+            // Ignora colunas vazias, colunas divisorias ou colunas de totalização
+            if (!insumo || insumo.toUpperCase() === 'TOTAL') continue;
+
+            // Busca o valor unitário na linha encontrada com o nome "VALOR"
+            const valorUnitario = linhaValor !== -1 ? (aba.getCell(linhaValor, col).value || 0) : 0;
+
+            // 3. Percorre as linhas de cores
+            for (let row = 1; row < totalLinhas; row++) {
+                const corRaw = aba.getCell(row, 0).value;
+                const cor = corRaw ? String(corRaw).trim() : '';
+                const corUpper = cor.toUpperCase();
+
+                // Desconsidera linhas vazias, a linha "TOTAL" e a própria linha "VALOR"
+                if (!cor || corUpper === 'TOTAL' || corUpper === 'VALOR') continue;
+
+                const qtdRaw = aba.getCell(row, col).value;
+                const quantidade = typeof qtdRaw === 'number'
+                    ? qtdRaw
+                    : parseFloat(String(qtdRaw || '0').replace(',', '.')) || 0;
+
+                if (quantidade > 0) {
+                    itensMdf.push({
+                        insumo,
+                        cor,
+                        quantidade,
+                        valorUnitario,
+                        local
+                    });
                 }
             }
         }
-    }
 
-    // --- 2. MDF REGIONAL ---
-    if (abaMdfRegional) {
-        await abaMdfRegional.loadCells('A1:K13'); 
-        for (let col = 1; col <= 10; col++) {
-            if (col === 2 || col === 4) continue;
-            const insumo = abaMdfRegional.getCell(0, col).value; 
-            const valorUnitario = abaMdfRegional.getCell(12, col).value; 
-            if (insumo) {
-                for (let row = 1; row <= 10; row++) {
-                    const cor = abaMdfRegional.getCell(row, 0).value; 
-                    const quantidade = abaMdfRegional.getCell(row, col).value; 
-                    if (cor && quantidade && quantidade > 0) {
-                        mdf.push({ insumo, cor, quantidade, valorUnitario: valorUnitario || 0, local: 'Regional' });
-                    }
-                }
-            }
-        }
-    }
+        return itensMdf;
+    };
 
-    // --- 3. MDF UPFEM ---
-    if (abaMdfUpfem) {
-        await abaMdfUpfem.loadCells('A1:I5'); 
-        for (let col = 1; col <= 8; col++) {
-            const insumo = abaMdfUpfem.getCell(0, col).value; 
-            const valorUnitario = abaMdfUpfem.getCell(4, col).value; 
-            if (insumo) {
-                for (let row = 1; row <= 2; row++) {
-                    const cor = abaMdfUpfem.getCell(row, 0).value; 
-                    const quantidade = abaMdfUpfem.getCell(row, col).value; 
-                    if (cor && quantidade && quantidade > 0) {
-                        mdf.push({ insumo, cor, quantidade, valorUnitario: valorUnitario || 0, local: 'Upfem' });
-                    }
-                }
-            }
-        }
-    }
+    // Extrai e unifica os dados das três unidades
+    const mdf = [
+        ...(await extrairDadosMdf(abaMdfSede, 'Sede')),
+        ...(await extrairDadosMdf(abaMdfRegional, 'Regional')),
+        ...(await extrairDadosMdf(abaMdfUpfem, 'Upfem'))
+    ];
 
-    // --- Função Auxiliar ---
+    // --- FUNÇÃO AUXILIAR ABAS PADRÃO ---
     const extrairDadosAbaPadrao = async (aba, isEpi) => {
         if (!aba) return [];
         const linhas = await aba.getRows();
@@ -93,7 +108,7 @@ exports.getEstoqueData = async () => {
             insumo: row.get('INSUMO') || row._rawData[0],
             medida: row.get('MEDIDA') || row._rawData[1],
             quantidade: row.get('QUANTIDADE') || row._rawData[2],
-            valorUnitario: isEpi ? (row._rawData[3]) : (row._rawData[4]) 
+            valorUnitario: isEpi ? (row._rawData[3]) : (row._rawData[4])
         })).filter(item => item.insumo);
     };
 
@@ -101,7 +116,7 @@ exports.getEstoqueData = async () => {
     const limpeza = await extrairDadosAbaPadrao(abaLimpeza, false);
     const epis = await extrairDadosAbaPadrao(abaEpis, true);
 
-    // --- 4. MAQUINÁRIO ---
+    // --- MAQUINÁRIO ---
     const maquinario = [];
     if (abaMaquinario) {
         const linhasMaq = await abaMaquinario.getRows();

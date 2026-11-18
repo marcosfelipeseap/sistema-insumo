@@ -40,13 +40,31 @@ class SimuladorService {
         const { data: produtosDb } = await supabase.schema('orcamento').from('produto').select('id, nome').in('id', produtoIds);
         const { data: composicoes } = await supabase.schema('orcamento').from('produto_composicao').select('*').in('produto_id', produtoIds);
         
-        // Soma a demanda total de cada insumo (pelos IDs originais da composição)
+        // Soma a demanda total de cada insumo e mapeia para quais produtos ele vai
         const demandaMap = {};
+        const produtosPorInsumoMap = {};
+
         selecao.forEach(item => {
+            const prodObj = produtosDb.find(p => String(p.id) === String(item.produto_id));
+            const prodNome = prodObj ? prodObj.nome : 'Desconhecido';
             const compProduto = composicoes.filter(c => String(c.produto_id) === String(item.produto_id));
+
             compProduto.forEach(c => {
+                const qtdInsumoNoProduto = Number(c.indice) * Number(item.quantidade);
+
                 if (!demandaMap[c.insumo_id]) demandaMap[c.insumo_id] = 0;
-                demandaMap[c.insumo_id] += (Number(c.indice) * Number(item.quantidade));
+                demandaMap[c.insumo_id] += qtdInsumoNoProduto;
+
+                if (!produtosPorInsumoMap[c.insumo_id]) produtosPorInsumoMap[c.insumo_id] = [];
+                const existente = produtosPorInsumoMap[c.insumo_id].find(p => p.nome === prodNome);
+                if (existente) {
+                    existente.qtd += qtdInsumoNoProduto;
+                } else {
+                    produtosPorInsumoMap[c.insumo_id].push({
+                        nome: prodNome,
+                        qtd: qtdInsumoNoProduto
+                    });
+                }
             });
         });
 
@@ -105,6 +123,11 @@ class SimuladorService {
             const custoNecessario = necessita * valorUnit;
             const custoEstoque = estoqueRealTotal * valorUnit; 
             
+            const produtosDestino = (produtosPorInsumoMap[idOriginal] || []).map(p => ({
+                nome: p.nome,
+                qtd: Math.ceil(p.qtd)
+            }));
+
             insumosResultado.push({
                 id: idOriginal, // Mantém o ID original para o checkbox
                 descricao: insOriginal.descricao,
@@ -114,7 +137,8 @@ class SimuladorService {
                 qtd_estoque: estoqueRealTotal,
                 qtd_falta: falta,
                 custo_total: custoNecessario,
-                custo_estoque: custoEstoque
+                custo_estoque: custoEstoque,
+                produtos: produtosDestino
             });
         });
 
